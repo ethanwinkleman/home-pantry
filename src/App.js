@@ -3,16 +3,27 @@ import {
   Package, Thermometer, Wind, Home, ShoppingCart, UtensilsCrossed,
   Plus, Minus, Trash2, Search, X, Bell, AlertTriangle, CheckCircle2,
   ChefHat, Clock, RefreshCw, PartyPopper, ShoppingBag, Sparkles,
-  TrendingDown, BarChart2, Calendar, Filter, ChevronDown
+  TrendingDown, BarChart2, Calendar, Filter, ChevronDown, FolderPlus, Tag
 } from "lucide-react";
 
 // ── Constants ─────────────────────────────────────────────────────
-const CATEGORIES = {
-  pantry:    { label: "Pantry",    Icon: Package,      color: "#C8956C" },
-  fridge:    { label: "Fridge",    Icon: Thermometer,  color: "#7BAFC4" },
-  freezer:   { label: "Freezer",   Icon: Wind,         color: "#9BC4CB" },
-  household: { label: "Household", Icon: Home,         color: "#B5935A" },
-};
+// Icon map for serializable category storage
+const ICON_OPTIONS = [
+  { key: "Package",      Icon: Package },
+  { key: "Thermometer",  Icon: Thermometer },
+  { key: "Wind",         Icon: Wind },
+  { key: "Home",         Icon: Home },
+  { key: "ShoppingBag",  Icon: ShoppingBag },
+  { key: "ChefHat",      Icon: ChefHat },
+  { key: "Tag",          Icon: Tag },
+  { key: "Sparkles",     Icon: Sparkles },
+  { key: "Bell",         Icon: Bell },
+  { key: "BarChart2",    Icon: BarChart2 },
+];
+function iconFromKey(key) {
+  const match = ICON_OPTIONS.find(o => o.key === key);
+  return match ? match.Icon : Package;
+}
 const UNITS = ["oz","lbs","cups","liters","ml","count","bags","boxes","cans","bottles"];
 const INITIAL_ITEMS = [
   { id:1,  name:"Olive Oil",       category:"pantry",    qty:1, unit:"bottles", low:1 },
@@ -35,6 +46,30 @@ const TREND_COLORS = [
   "#C8956C","#7BAFC4","#9BC4CB","#B5935A","#A07850",
   "#6B9E8A","#C4826E","#8BAFC0","#B8956A","#7A9E88",
 ];
+
+const CATEGORY_COLORS = [
+  "#C8956C","#7BAFC4","#9BC4CB","#B5935A","#A07850",
+  "#6B9E8A","#C4826E","#5B8DB8","#8E7BB5","#6BAA8A",
+];
+
+const STORAGE_KEY_CATS = "hp_categories";
+
+function loadCategories() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY_CATS);
+    if (s) return JSON.parse(s);
+  } catch {}
+  // Default categories (Icon stored as string key, resolved at render)
+  return {
+    pantry:    { label: "Pantry",    iconKey: "Package",     color: "#C8956C" },
+    fridge:    { label: "Fridge",    iconKey: "Thermometer", color: "#7BAFC4" },
+    freezer:   { label: "Freezer",   iconKey: "Wind",        color: "#9BC4CB" },
+    household: { label: "Household", iconKey: "Home",        color: "#B5935A" },
+  };
+}
+function saveCategories(cats) {
+  try { localStorage.setItem(STORAGE_KEY_CATS, JSON.stringify(cats)); } catch {}
+}
 
 const FONT      = `'Lora', serif`;
 const FONT_BODY = `'Source Sans 3', sans-serif`;
@@ -109,6 +144,12 @@ const css = `
   /* Item cards */
   .item-card { background: #fff; border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 4px rgba(61,43,31,0.07); border: 1.5px solid transparent; transition: border-color 0.2s; }
   .item-card.low { border-color: #E07B39; background: #FFF8F3; }
+  .item-card.item-highlight { animation: highlightPulse 1.4s ease; }
+  @keyframes highlightPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(200,149,108,0.5); }
+    40%  { box-shadow: 0 0 0 6px rgba(200,149,108,0.25); }
+    100% { box-shadow: 0 0 0 0 rgba(200,149,108,0); }
+  }
   .item-info { flex: 1; min-width: 0; }
   .item-name { font-size: 15px; font-weight: 500; color: #3D2B1F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .item-meta { font-size: 12px; color: #9E8070; margin-top: 3px; display: flex; align-items: center; gap: 4px; }
@@ -190,6 +231,9 @@ const css = `
   .alerts-banner-header { display: flex; align-items: center; gap: 7px; font-family: ${FONT}; font-size: 15px; font-weight: 600; margin-bottom: 8px; }
   .alert-items { display: flex; flex-wrap: wrap; gap: 5px; }
   .alert-tag { background: rgba(255,255,255,0.2); font-size: 12px; padding: 3px 9px; border-radius: 20px; font-weight: 500; }
+  .alert-tag-btn { cursor: pointer; transition: background 0.18s; display: inline-flex; align-items: center; gap: 4px; }
+  .alert-tag-btn::after { content: '→'; font-size: 11px; opacity: 0.8; }
+  .alert-tag-btn:hover { background: rgba(255,255,255,0.35); }
   .search-bar { background: #F0E8DF; border-radius: 12px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; color: #B5935A; }
   .search-bar input { flex: 1; background: none; border: none; outline: none; font-size: 15px; color: #3D2B1F; font-family: ${FONT_BODY}; }
   .search-bar input::placeholder { color: #B5935A; }
@@ -250,6 +294,18 @@ const css = `
   .range-row { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
   .range-btn { padding: 5px 12px; border-radius: 20px; border: 1.5px solid #E5D5C6; background: #fff; font-size: 11px; font-weight: 600; color: #7A5C45; cursor: pointer; transition: all 0.18s; font-family: ${FONT_BODY}; }
   .range-btn.active { background: #3D2B1F; color: #F5E6D3; border-color: #3D2B1F; }
+
+  /* Category management */
+  .add-cat-btn { width: 100%; padding: 12px; border-radius: 14px; border: 1.5px dashed #C8956C; background: transparent; color: #C8956C; font-size: 14px; font-weight: 600; cursor: pointer; font-family: ${FONT_BODY}; margin-top: 4px; transition: all 0.18s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .add-cat-btn:hover { background: #FFF3EA; }
+  .cat-delete-btn { background: none; border: none; cursor: pointer; color: #C4A98A; padding: 2px 4px; transition: color 0.15s; display: flex; align-items: center; margin-left: 4px; }
+  .cat-delete-btn:hover { color: #C0392B; }
+  .icon-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 8px; }
+  .icon-opt { width: 100%; aspect-ratio: 1; border-radius: 10px; border: 1.5px solid #E5D5C6; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.18s; color: #7A5C45; }
+  .icon-opt.selected { border-color: #C8956C; background: #FFF3EA; color: #C8956C; }
+  .color-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .color-swatch { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2.5px solid transparent; transition: all 0.18s; }
+  .color-swatch.selected { border-color: #3D2B1F; transform: scale(1.15); }
 
   /* Bottom nav */
   .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: #fff; border-top: 1.5px solid #EDE0D4; display: flex; padding: 8px 0 16px; z-index: 100; }
@@ -595,6 +651,9 @@ function TrendsTab({ items, log }) {
 // ── Main App ─────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab]               = useState("inventory");
+  const [categories, setCategories] = useState(() => loadCategories());
+  const [showAddCat, setShowAddCat] = useState(false);
+  const [newCat, setNewCat]         = useState({ label: "", iconKey: "Package", color: "#C8956C" });
   const [items, setItems]           = useState(() => loadItems());
   const [log, setLog]               = useState(() => loadLog());
   const [showAdd, setShowAdd]       = useState(false);
@@ -614,9 +673,57 @@ export default function App() {
     });
   };
 
-  // Persist items & log to localStorage
+  // Refs for scrolling to individual item cards
+  const itemRefs = useRef({});
+
+  const scrollToItem = (itemId) => {
+    // Find which category this item belongs to
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+    const catKey = item.category;
+
+    // Expand the category if collapsed
+    setCollapsed(prev => {
+      if (prev[catKey]) {
+        const next = { ...prev, [catKey]: false };
+        try { localStorage.setItem("hp_collapsed", JSON.stringify(next)); } catch {}
+        return next;
+      }
+      return prev;
+    });
+
+    // Scroll after a brief delay to allow expand animation
+    setTimeout(() => {
+      const el = itemRefs.current[itemId];
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Flash highlight
+        el.classList.add("item-highlight");
+        setTimeout(() => el.classList.remove("item-highlight"), 1400);
+      }
+    }, 320);
+  };
+
+  // Persist items & log & categories to localStorage
   useEffect(() => { saveItems(items); }, [items]);
   useEffect(() => { saveLog(log); }, [log]);
+  useEffect(() => { saveCategories(categories); }, [categories]);
+
+  const addCategory = () => {
+    if (!newCat.label.trim()) return;
+    const key = newCat.label.toLowerCase().replace(/[^a-z0-9]/g, "_") + "_" + Date.now();
+    setCategories(prev => ({ ...prev, [key]: { label: newCat.label.trim(), iconKey: newCat.iconKey, color: newCat.color } }));
+    setNewCat({ label: "", iconKey: "Package", color: "#C8956C" });
+    setShowAddCat(false);
+  };
+
+  const deleteCategory = (key) => {
+    setCategories(prev => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   const lowItems  = items.filter(i => i.qty <= i.low);
   const shopItems = lowItems;
@@ -645,7 +752,7 @@ export default function App() {
   };
 
   const filteredItems = items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()));
-  const grouped = Object.keys(CATEGORIES).reduce((acc, cat) => {
+  const grouped = Object.keys(categories).reduce((acc, cat) => {
     acc[cat] = filteredItems.filter(i => i.category === cat);
     return acc;
   }, {});
@@ -680,7 +787,15 @@ export default function App() {
               {lowItems.length > 0 && (
                 <div className="alerts-banner">
                   <div className="alerts-banner-header"><Bell size={16}/>Running low</div>
-                  <div className="alert-items">{lowItems.map(i=><span className="alert-tag" key={i.id}>{i.name}</span>)}</div>
+                  <div className="alert-items">
+                    {lowItems.map(i => (
+                      <span
+                        className="alert-tag alert-tag-btn"
+                        key={i.id}
+                        onClick={() => scrollToItem(i.id)}
+                      >{i.name}</span>
+                    ))}
+                  </div>
                 </div>
               )}
               <div className="search-bar">
@@ -688,32 +803,40 @@ export default function App() {
                 <input placeholder="Search items…" value={search} onChange={e=>setSearch(e.target.value)}/>
                 {search && <button className="search-clear" onClick={()=>setSearch("")}><X size={16}/></button>}
               </div>
-              {Object.entries(CATEGORIES).map(([catKey, cat]) => {
-                const catItems = grouped[catKey];
-                if (!catItems.length) return null;
+              {Object.entries(categories).map(([catKey, cat]) => {
+                const CatIcon = iconFromKey(cat.iconKey);
+                const catItems = grouped[catKey] || [];
                 const isOpen = !collapsed[catKey];
                 const estimatedHeight = catItems.length * 72 + 20;
+                const isEmpty = catItems.length === 0;
                 return (
                   <div className="category-section" key={catKey}>
                     <div
-                      className={`category-header ${isOpen ? "open" : ""}`}
-                      onClick={() => toggleCollapsed(catKey)}
+                      className={`category-header ${isOpen && !isEmpty ? "open" : ""}`}
+                      onClick={() => !isEmpty && toggleCollapsed(catKey)}
+                      style={isEmpty ? { cursor: "default" } : {}}
                     >
                       <div className="category-icon" style={{background:cat.color+"22"}}>
-                        <cat.Icon size={16} color={cat.color}/>
+                        <CatIcon size={16} color={cat.color}/>
                       </div>
                       <h2>{cat.label}</h2>
                       <span className="cat-count">{catItems.length} items</span>
-                      <ChevronDown size={16} className={`cat-chevron ${isOpen ? "open" : ""}`}/>
+                      {isEmpty
+                        ? <button className="cat-delete-btn" title="Delete empty category"
+                            onClick={e => { e.stopPropagation(); deleteCategory(catKey); }}>
+                            <Trash2 size={15}/>
+                          </button>
+                        : <ChevronDown size={16} className={`cat-chevron ${isOpen ? "open" : ""}`}/>
+                      }
                     </div>
                     <div
-                      className={`category-items ${isOpen ? "open" : "closed"}`}
-                      style={isOpen ? { maxHeight: estimatedHeight + "px", opacity: 1 } : {}}
+                      className={`category-items ${isOpen && !isEmpty ? "open" : "closed"}`}
+                      style={isOpen && !isEmpty ? { maxHeight: estimatedHeight + "px", opacity: 1 } : {}}
                     >
                       {catItems.map(item => {
                         const isLow = item.qty <= item.low;
                         return (
-                          <div className={`item-card ${isLow?"low":""}`} key={item.id} style={{marginBottom:6}}>
+                          <div className={`item-card ${isLow?"low":""}`} key={item.id} style={{marginBottom:6}} ref={el => itemRefs.current[item.id] = el}>
                             <div className="item-info">
                               <div className="item-name">{item.name}</div>
                               <div className={`item-meta ${isLow?"low-text":""}`}>
@@ -734,6 +857,9 @@ export default function App() {
                   </div>
                 );
               })}
+              <button className="add-cat-btn" onClick={()=>setShowAddCat(true)}>
+                <FolderPlus size={16}/> New Category
+              </button>
             </>
           )}
 
@@ -753,14 +879,16 @@ export default function App() {
                 </div>
               )}
               {shopItems.map(item => {
-                const {Icon:CatIcon, color, label} = CATEGORIES[item.category];
+                const shopCat = categories[item.category] || { label: item.category, iconKey: "Package", color: "#C8956C" };
+                const CatIcon2 = iconFromKey(shopCat.iconKey);
+                const { color, label } = { color: shopCat.color, label: shopCat.label };
                 const checked = shopChecked[item.id];
                 return (
                   <div key={item.id} className={`shop-item ${checked?"checked":""}`} onClick={()=>toggleShop(item.id)}>
                     <div className="shop-check">{checked && <CheckCircle2 size={14}/>}</div>
                     <div className="shop-item-info">
                       <div className="shop-item-name">{item.name}</div>
-                      <div className="shop-item-cat"><CatIcon size={12} color={color}/>{label} · {item.qty} {item.unit} left</div>
+                      <div className="shop-item-cat"><CatIcon2 size={12} color={color}/>{label} · {item.qty} {item.unit} left</div>
                     </div>
                     <ShoppingBag size={16} color="#C4A98A"/>
                   </div>
@@ -797,7 +925,7 @@ export default function App() {
               <div className="form-row">
                 <label className="form-label">Category</label>
                 <select className="form-select" value={newItem.category} onChange={e=>setNewItem(p=>({...p,category:e.target.value}))}>
-                  {Object.entries(CATEGORIES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                  {Object.entries(categories).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                 </select>
               </div>
               <div className="form-row-2">
@@ -821,6 +949,44 @@ export default function App() {
               <div className="btn-row">
                 <button className="btn btn-secondary" onClick={()=>setShowAdd(false)}>Cancel</button>
                 <button className="btn btn-primary" onClick={addItem}>Add Item</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Category Modal */}
+        {showAddCat && (
+          <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowAddCat(false)}>
+            <div className="modal">
+              <h3>New Category</h3>
+              <div className="form-row">
+                <label className="form-label">Category Name</label>
+                <input className="form-input" placeholder="e.g. Spice Rack" value={newCat.label}
+                  onChange={e=>setNewCat(p=>({...p,label:e.target.value}))}/>
+              </div>
+              <div className="form-row">
+                <label className="form-label">Icon</label>
+                <div className="icon-grid">
+                  {ICON_OPTIONS.map(({key,Icon:Ic})=>(
+                    <button key={key} className={`icon-opt ${newCat.iconKey===key?"selected":""}`}
+                      onClick={()=>setNewCat(p=>({...p,iconKey:key}))}>
+                      <Ic size={18}/>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="form-row">
+                <label className="form-label">Color</label>
+                <div className="color-grid">
+                  {CATEGORY_COLORS.map(c=>(
+                    <div key={c} className={`color-swatch ${newCat.color===c?"selected":""}`}
+                      style={{background:c}} onClick={()=>setNewCat(p=>({...p,color:c}))}/>
+                  ))}
+                </div>
+              </div>
+              <div className="btn-row">
+                <button className="btn btn-secondary" onClick={()=>setShowAddCat(false)}>Cancel</button>
+                <button className="btn btn-primary" onClick={addCategory}>Create</button>
               </div>
             </div>
           </div>
