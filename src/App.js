@@ -3,7 +3,7 @@ import {
   Package, Thermometer, Wind, Home, ShoppingCart, UtensilsCrossed,
   Plus, Minus, Trash2, Search, X, Bell, AlertTriangle, CheckCircle2,
   ChefHat, Clock, RefreshCw, PartyPopper, ShoppingBag, Sparkles,
-  TrendingDown, BarChart2, Calendar, Filter
+  TrendingDown, BarChart2, Calendar, Filter, ChevronDown
 } from "lucide-react";
 
 // ── Constants ─────────────────────────────────────────────────────
@@ -93,11 +93,18 @@ const css = `
   .content { padding: 16px; padding-bottom: 88px; }
 
   /* Category */
-  .category-section { margin-bottom: 20px; }
-  .category-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .category-section { margin-bottom: 12px; }
+  .category-header { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; padding: 10px 14px; background: #fff; border-radius: 14px; box-shadow: 0 1px 4px rgba(61,43,31,0.07); transition: background 0.18s; margin-bottom: 0; }
+  .category-header:hover { background: #FAF2EA; }
+  .category-header.open { border-radius: 14px 14px 0 0; }
   .category-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .category-header h2 { font-family: ${FONT}; font-size: 16px; font-weight: 600; color: #3D2B1F; }
-  .cat-count { font-size: 11px; color: #9E8070; font-family: ${FONT_BODY}; margin-left: auto; }
+  .cat-count { font-size: 11px; color: #9E8070; font-family: ${FONT_BODY}; margin-left: auto; margin-right: 6px; }
+  .cat-chevron { color: #C4A98A; transition: transform 0.25s ease; flex-shrink: 0; }
+  .cat-chevron.open { transform: rotate(180deg); }
+  .category-items { background: #fff; border-radius: 0 0 14px 14px; overflow: hidden; transition: max-height 0.32s ease, opacity 0.25s ease, padding 0.25s ease; box-shadow: 0 2px 6px rgba(61,43,31,0.06); }
+  .category-items.open { padding: 6px 10px 10px; }
+  .category-items.closed { max-height: 0 !important; opacity: 0; padding: 0 10px; pointer-events: none; }
 
   /* Item cards */
   .item-card { background: #fff; border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 4px rgba(61,43,31,0.07); border: 1.5px solid transparent; transition: border-color 0.2s; }
@@ -595,6 +602,18 @@ export default function App() {
   const [shopChecked, setShopChecked] = useState({});
   const [newItem, setNewItem]       = useState({ name:"", category:"pantry", qty:1, unit:"count", low:1 });
 
+  // Collapsed categories — persisted to localStorage
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("hp_collapsed") || "{}"); } catch { return {}; }
+  });
+  const toggleCollapsed = (cat) => {
+    setCollapsed(prev => {
+      const next = { ...prev, [cat]: !prev[cat] };
+      try { localStorage.setItem("hp_collapsed", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
   // Persist items & log to localStorage
   useEffect(() => { saveItems(items); }, [items]);
   useEffect(() => { saveLog(log); }, [log]);
@@ -672,35 +691,46 @@ export default function App() {
               {Object.entries(CATEGORIES).map(([catKey, cat]) => {
                 const catItems = grouped[catKey];
                 if (!catItems.length) return null;
+                const isOpen = !collapsed[catKey];
+                const estimatedHeight = catItems.length * 72 + 20;
                 return (
                   <div className="category-section" key={catKey}>
-                    <div className="category-header">
+                    <div
+                      className={`category-header ${isOpen ? "open" : ""}`}
+                      onClick={() => toggleCollapsed(catKey)}
+                    >
                       <div className="category-icon" style={{background:cat.color+"22"}}>
                         <cat.Icon size={16} color={cat.color}/>
                       </div>
                       <h2>{cat.label}</h2>
                       <span className="cat-count">{catItems.length} items</span>
+                      <ChevronDown size={16} className={`cat-chevron ${isOpen ? "open" : ""}`}/>
                     </div>
-                    {catItems.map(item => {
-                      const isLow = item.qty <= item.low;
-                      return (
-                        <div className={`item-card ${isLow?"low":""}`} key={item.id}>
-                          <div className="item-info">
-                            <div className="item-name">{item.name}</div>
-                            <div className={`item-meta ${isLow?"low-text":""}`}>
-                              {isLow ? <><AlertTriangle size={11}/>Running low</> : `Min: ${item.low} ${item.unit}`}
+                    <div
+                      className={`category-items ${isOpen ? "open" : "closed"}`}
+                      style={isOpen ? { maxHeight: estimatedHeight + "px", opacity: 1 } : {}}
+                    >
+                      {catItems.map(item => {
+                        const isLow = item.qty <= item.low;
+                        return (
+                          <div className={`item-card ${isLow?"low":""}`} key={item.id} style={{marginBottom:6}}>
+                            <div className="item-info">
+                              <div className="item-name">{item.name}</div>
+                              <div className={`item-meta ${isLow?"low-text":""}`}>
+                                {isLow ? <><AlertTriangle size={11}/>Running low</> : `Min: ${item.low} ${item.unit}`}
+                              </div>
                             </div>
+                            <div className="qty-controls">
+                              <button className="qty-btn minus" onClick={()=>updateQty(item.id,-1)}><Minus size={14}/></button>
+                              <span className="qty-num">{item.qty}</span>
+                              <button className="qty-btn plus"  onClick={()=>updateQty(item.id,+1)}><Plus size={14}/></button>
+                            </div>
+                            <span className="unit-label">{item.unit}</span>
+                            <button className="delete-btn" onClick={()=>deleteItem(item.id)}><Trash2 size={15}/></button>
                           </div>
-                          <div className="qty-controls">
-                            <button className="qty-btn minus" onClick={()=>updateQty(item.id,-1)}><Minus size={14}/></button>
-                            <span className="qty-num">{item.qty}</span>
-                            <button className="qty-btn plus"  onClick={()=>updateQty(item.id,+1)}><Plus size={14}/></button>
-                          </div>
-                          <span className="unit-label">{item.unit}</span>
-                          <button className="delete-btn" onClick={()=>deleteItem(item.id)}><Trash2 size={15}/></button>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
