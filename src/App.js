@@ -119,7 +119,8 @@ const css = `
   .header-top { display: flex; align-items: center; justify-content: space-between; }
   .header h1 { font-family: ${FONT}; font-size: 22px; color: #F5E6D3; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
   .header h1 span { color: #C8956C; font-style: italic; }
-  .low-badge { display: flex; align-items: center; gap: 5px; background: #E07B39; color: #fff; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; font-family: ${FONT_BODY}; }
+  .low-badge { display: flex; align-items: center; gap: 5px; background: #E07B39; color: #fff; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; font-family: ${FONT_BODY}; cursor: pointer; transition: background 0.18s; }
+  .low-badge:hover { background: #C85E20; }
 
   /* Content */
   .content { padding: 16px; padding-bottom: 88px; }
@@ -363,7 +364,7 @@ function MealSuggestions({ items }) {
       if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false;
       return r.ingredients.every(ing => inventory.has(ing.toLowerCase()));
     });
-  }, [inventory, cuisine, maxTime, search]);
+  }, [inventory, cuisine, maxTime, search, recipes]);
 
   const cuisines = ["All", ...Array.from(new Set(recipes.map(r => r.cuisine))).sort()];
   const visible  = showAll ? matched : matched.slice(0, 12);
@@ -844,7 +845,7 @@ export default function App() {
           <div className="header-top" style={{marginBottom:0}}>
             <h1><Home size={20} color="#C8956C"/>Home <span>Pantry</span></h1>
             {lowItems.length > 0 && (
-              <div className="low-badge"><AlertTriangle size={12}/>{lowItems.length} running low</div>
+              <div className="low-badge" onClick={()=>switchTab("inventory")}><AlertTriangle size={12}/>{lowItems.length} running low</div>
             )}
           </div>
         </div>
