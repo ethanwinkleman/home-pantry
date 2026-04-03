@@ -7,7 +7,7 @@ import {
   Package, Thermometer, Wind, Home, ShoppingCart, UtensilsCrossed,
   Plus, Minus, Trash2, Search, X, Bell, AlertTriangle, CheckCircle2,
   ChefHat, Clock, PartyPopper, ShoppingBag, Sparkles,
-  TrendingDown, BarChart2, Calendar, Filter, ChevronDown, FolderPlus, Tag
+  TrendingDown, BarChart2, Calendar, Filter, ChevronDown, FolderPlus, Tag, Settings, RotateCcw, Zap, AlertOctagon
 } from "lucide-react";
 
 // ── Firebase setup ────────────────────────────────────────────────
@@ -57,6 +57,283 @@ const INITIAL_ITEMS = [
   { id:12, name:"Onions",          category:"pantry",    qty:3, unit:"count",   low:2 },
   { id:13, name:"Butter",          category:"fridge",    qty:2, unit:"count",   low:1 },
   { id:14, name:"Parmesan",        category:"fridge",    qty:1, unit:"count",   low:0 },
+];
+
+
+// ── Demo inventory (250+ items) ──────────────────────────────────
+const DEMO_CATEGORIES = {
+  pantry:    { label: "Pantry",    iconKey: "Package",     color: "#C8956C" },
+  fridge:    { label: "Fridge",    iconKey: "Thermometer", color: "#7BAFC4" },
+  freezer:   { label: "Freezer",   iconKey: "Wind",        color: "#9BC4CB" },
+  household: { label: "Household", iconKey: "Home",        color: "#B5935A" },
+  spices:    { label: "Spices",    iconKey: "Tag",         color: "#A07850" },
+  baking:    { label: "Baking",    iconKey: "Sparkles",    color: "#6B9E8A" },
+  snacks:    { label: "Snacks",    iconKey: "ShoppingBag", color: "#C4826E" },
+  beverages: { label: "Beverages", iconKey: "Bell",        color: "#5B8DB8" },
+};
+
+let _demoId = 1000;
+const di = (name, category, qty, unit, low) => ({ id: _demoId++, name, category, qty, unit, low });
+
+const DEMO_ITEMS = [
+  // Pantry
+  di("Olive Oil",           "pantry", 2, "bottles", 1),
+  di("Vegetable Oil",       "pantry", 1, "bottles", 1),
+  di("Coconut Oil",         "pantry", 1, "jars",    1),
+  di("Pasta",               "pantry", 4, "boxes",   2),
+  di("Spaghetti",           "pantry", 2, "boxes",   1),
+  di("Penne",               "pantry", 2, "boxes",   1),
+  di("Rice",                "pantry", 3, "lbs",     1),
+  di("Brown Rice",          "pantry", 2, "lbs",     1),
+  di("Quinoa",              "pantry", 1, "lbs",     1),
+  di("Canned Tomatoes",     "pantry", 6, "cans",    3),
+  di("Tomato Paste",        "pantry", 3, "cans",    2),
+  di("Tomato Sauce",        "pantry", 4, "cans",    2),
+  di("Chicken Broth",       "pantry", 4, "cans",    2),
+  di("Beef Broth",          "pantry", 2, "cans",    1),
+  di("Vegetable Broth",     "pantry", 2, "cans",    1),
+  di("Black Beans",         "pantry", 4, "cans",    2),
+  di("Kidney Beans",        "pantry", 3, "cans",    2),
+  di("Chickpeas",           "pantry", 3, "cans",    2),
+  di("Lentils",             "pantry", 2, "lbs",     1),
+  di("Canned Tuna",         "pantry", 6, "cans",    3),
+  di("Canned Salmon",       "pantry", 3, "cans",    2),
+  di("Canned Corn",         "pantry", 4, "cans",    2),
+  di("Canned Peas",         "pantry", 3, "cans",    2),
+  di("Coconut Milk",        "pantry", 3, "cans",    2),
+  di("Soy Sauce",           "pantry", 1, "bottles", 1),
+  di("Fish Sauce",          "pantry", 1, "bottles", 1),
+  di("Worcestershire",      "pantry", 1, "bottles", 1),
+  di("Hot Sauce",           "pantry", 1, "bottles", 1),
+  di("Sriracha",            "pantry", 1, "bottles", 1),
+  di("Honey",               "pantry", 1, "bottles", 1),
+  di("Maple Syrup",         "pantry", 1, "bottles", 1),
+  di("Apple Cider Vinegar", "pantry", 1, "bottles", 1),
+  di("Balsamic Vinegar",    "pantry", 1, "bottles", 1),
+  di("White Vinegar",       "pantry", 1, "bottles", 1),
+  di("Peanut Butter",       "pantry", 2, "jars",    1),
+  di("Almond Butter",       "pantry", 1, "jars",    1),
+  di("Jam",                 "pantry", 1, "jars",    1),
+  di("Salsa",               "pantry", 2, "jars",    1),
+  di("Pasta Sauce",         "pantry", 3, "jars",    2),
+  di("BBQ Sauce",           "pantry", 1, "bottles", 1),
+  di("Ketchup",             "pantry", 1, "bottles", 1),
+  di("Mustard",             "pantry", 1, "bottles", 1),
+  di("Mayo",                "pantry", 1, "jars",    1),
+  di("Ranch Dressing",      "pantry", 1, "bottles", 1),
+  di("Soy Milk",            "pantry", 2, "boxes",   1),
+  di("Oats",                "pantry", 1, "lbs",     1),
+  di("Granola",             "pantry", 1, "bags",    1),
+  di("Bread Crumbs",        "pantry", 1, "boxes",   1),
+  di("Panko",               "pantry", 1, "boxes",   1),
+  di("Crackers",            "pantry", 2, "boxes",   1),
+  di("Bread",               "pantry", 1, "count",   1),
+  di("Tortillas",           "pantry", 1, "bags",    1),
+  di("Pita Bread",          "pantry", 1, "bags",    1),
+  di("Ramen Noodles",       "pantry", 6, "count",   3),
+  di("Couscous",            "pantry", 1, "boxes",   1),
+  di("Polenta",             "pantry", 1, "boxes",   1),
+  di("Sun-Dried Tomatoes",  "pantry", 1, "jars",    1),
+  di("Olives",              "pantry", 1, "jars",    1),
+  di("Capers",              "pantry", 1, "jars",    1),
+  di("Tahini",              "pantry", 1, "jars",    1),
+  di("Sesame Oil",          "pantry", 1, "bottles", 1),
+  di("Teriyaki Sauce",      "pantry", 1, "bottles", 1),
+  di("Oyster Sauce",        "pantry", 1, "bottles", 1),
+  di("Curry Paste",         "pantry", 1, "jars",    1),
+  di("Garlic",              "pantry", 3, "count",   2),
+  di("Onions",              "pantry", 4, "count",   2),
+  di("Potatoes",            "pantry", 4, "lbs",     2),
+  di("Sweet Potatoes",      "pantry", 3, "count",   2),
+  // Fridge
+  di("Eggs",                "fridge", 12, "count",  6),
+  di("Milk",                "fridge", 1,  "liters", 1),
+  di("Butter",              "fridge", 2,  "count",  1),
+  di("Cream Cheese",        "fridge", 1,  "count",  1),
+  di("Sour Cream",          "fridge", 1,  "count",  1),
+  di("Greek Yogurt",        "fridge", 2,  "count",  1),
+  di("Heavy Cream",         "fridge", 1,  "count",  1),
+  di("Half and Half",       "fridge", 1,  "count",  1),
+  di("Cheddar Cheese",      "fridge", 1,  "lbs",    1),
+  di("Mozzarella",          "fridge", 1,  "count",  1),
+  di("Parmesan",            "fridge", 1,  "count",  1),
+  di("Feta Cheese",         "fridge", 1,  "count",  1),
+  di("Cottage Cheese",      "fridge", 1,  "count",  1),
+  di("Ricotta",             "fridge", 1,  "count",  1),
+  di("Shredded Cheese",     "fridge", 2,  "bags",   1),
+  di("Chicken Breast",      "fridge", 2,  "lbs",    1),
+  di("Ground Beef",         "fridge", 1,  "lbs",    1),
+  di("Bacon",               "fridge", 1,  "count",  1),
+  di("Ham",                 "fridge", 1,  "lbs",    1),
+  di("Italian Sausage",     "fridge", 1,  "count",  1),
+  di("Hot Dogs",            "fridge", 1,  "count",  1),
+  di("Deli Turkey",         "fridge", 1,  "lbs",    1),
+  di("Salami",              "fridge", 1,  "count",  1),
+  di("Carrots",             "fridge", 1,  "bags",   1),
+  di("Celery",              "fridge", 1,  "count",  1),
+  di("Broccoli",            "fridge", 1,  "count",  1),
+  di("Bell Peppers",        "fridge", 3,  "count",  2),
+  di("Spinach",             "fridge", 1,  "bags",   1),
+  di("Lettuce",             "fridge", 1,  "count",  1),
+  di("Kale",                "fridge", 1,  "bags",   1),
+  di("Mushrooms",           "fridge", 1,  "count",  1),
+  di("Zucchini",            "fridge", 2,  "count",  1),
+  di("Cucumber",            "fridge", 2,  "count",  1),
+  di("Tomatoes",            "fridge", 4,  "count",  2),
+  di("Cherry Tomatoes",     "fridge", 1,  "count",  1),
+  di("Lemon",               "fridge", 3,  "count",  2),
+  di("Lime",                "fridge", 3,  "count",  2),
+  di("Jalapeño",            "fridge", 2,  "count",  1),
+  di("Green Onions",        "fridge", 1,  "count",  1),
+  di("Fresh Ginger",        "fridge", 1,  "count",  1),
+  di("Avocado",             "fridge", 2,  "count",  1),
+  di("Orange Juice",        "fridge", 1,  "count",  1),
+  di("Apple Juice",         "fridge", 1,  "count",  1),
+  di("Tortillas (fridge)",  "fridge", 1,  "bags",   1),
+  di("Salsa (fridge)",      "fridge", 1,  "jars",   1),
+  di("Hummus",              "fridge", 1,  "count",  1),
+  di("Tofu",                "fridge", 1,  "count",  1),
+  // Freezer
+  di("Frozen Chicken",      "freezer", 3, "lbs",    1),
+  di("Ground Turkey",       "freezer", 2, "lbs",    1),
+  di("Pork Chops",          "freezer", 2, "lbs",    1),
+  di("Salmon Fillets",      "freezer", 2, "lbs",    1),
+  di("Shrimp",              "freezer", 1, "lbs",    1),
+  di("Tilapia",             "freezer", 2, "lbs",    1),
+  di("Beef Strips",         "freezer", 1, "lbs",    1),
+  di("Frozen Peas",         "freezer", 2, "bags",   1),
+  di("Frozen Corn",         "freezer", 2, "bags",   1),
+  di("Frozen Broccoli",     "freezer", 1, "bags",   1),
+  di("Frozen Spinach",      "freezer", 1, "bags",   1),
+  di("Frozen Green Beans",  "freezer", 1, "bags",   1),
+  di("Frozen Mixed Veg",    "freezer", 2, "bags",   1),
+  di("Frozen Berries",      "freezer", 2, "bags",   1),
+  di("Frozen Pizza",        "freezer", 2, "count",  1),
+  di("Frozen Waffles",      "freezer", 1, "boxes",  1),
+  di("Ice Cream",           "freezer", 1, "count",  1),
+  di("Frozen Edamame",      "freezer", 1, "bags",   1),
+  di("Frozen Burritos",     "freezer", 4, "count",  2),
+  di("Frozen Fries",        "freezer", 1, "bags",   1),
+  di("Frozen Meatballs",    "freezer", 1, "bags",   1),
+  di("Frozen Dumplings",    "freezer", 1, "bags",   1),
+  di("Frozen Stir Fry Mix", "freezer", 1, "bags",   1),
+  di("Bread (frozen)",      "freezer", 1, "count",  1),
+  di("Butter (frozen)",     "freezer", 2, "count",  1),
+  // Household
+  di("Paper Towels",        "household", 4,  "count", 2),
+  di("Toilet Paper",        "household", 12, "count", 4),
+  di("Tissue Box",          "household", 3,  "count", 1),
+  di("Dish Soap",           "household", 2,  "count", 1),
+  di("Hand Soap",           "household", 3,  "count", 2),
+  di("Laundry Detergent",   "household", 1,  "count", 1),
+  di("Fabric Softener",     "household", 1,  "count", 1),
+  di("Dishwasher Pods",     "household", 1,  "boxes", 1),
+  di("All-Purpose Cleaner", "household", 2,  "count", 1),
+  di("Bathroom Cleaner",    "household", 1,  "count", 1),
+  di("Glass Cleaner",       "household", 1,  "count", 1),
+  di("Trash Bags",          "household", 1,  "boxes", 1),
+  di("Zip Lock Bags",       "household", 2,  "boxes", 1),
+  di("Aluminum Foil",       "household", 1,  "count", 1),
+  di("Plastic Wrap",        "household", 1,  "count", 1),
+  di("Parchment Paper",     "household", 1,  "count", 1),
+  di("Sponges",             "household", 4,  "count", 2),
+  di("Toothpaste",          "household", 2,  "count", 1),
+  di("Shampoo",             "household", 1,  "count", 1),
+  di("Conditioner",         "household", 1,  "count", 1),
+  di("Body Wash",           "household", 2,  "count", 1),
+  di("Deodorant",           "household", 2,  "count", 1),
+  di("Razors",              "household", 1,  "count", 1),
+  di("Ibuprofen",           "household", 1,  "count", 1),
+  di("Vitamins",            "household", 1,  "count", 1),
+  di("Band-Aids",           "household", 1,  "boxes", 1),
+  di("Sunscreen",           "household", 1,  "count", 1),
+  di("Bug Spray",           "household", 1,  "count", 1),
+  di("Batteries (AA)",      "household", 1,  "boxes", 1),
+  di("Batteries (AAA)",     "household", 1,  "boxes", 1),
+  di("Light Bulbs",         "household", 1,  "boxes", 1),
+  // Spices
+  di("Salt",                "spices", 1, "count", 1),
+  di("Black Pepper",        "spices", 1, "count", 1),
+  di("Garlic Powder",       "spices", 1, "count", 1),
+  di("Onion Powder",        "spices", 1, "count", 1),
+  di("Paprika",             "spices", 1, "count", 1),
+  di("Smoked Paprika",      "spices", 1, "count", 1),
+  di("Cumin",               "spices", 1, "count", 1),
+  di("Chili Powder",        "spices", 1, "count", 1),
+  di("Cayenne Pepper",      "spices", 1, "count", 1),
+  di("Red Pepper Flakes",   "spices", 1, "count", 1),
+  di("Oregano",             "spices", 1, "count", 1),
+  di("Basil",               "spices", 1, "count", 1),
+  di("Thyme",               "spices", 1, "count", 1),
+  di("Rosemary",            "spices", 1, "count", 1),
+  di("Bay Leaves",          "spices", 1, "count", 1),
+  di("Cinnamon",            "spices", 1, "count", 1),
+  di("Nutmeg",              "spices", 1, "count", 1),
+  di("Turmeric",            "spices", 1, "count", 1),
+  di("Curry Powder",        "spices", 1, "count", 1),
+  di("Italian Seasoning",   "spices", 1, "count", 1),
+  di("Taco Seasoning",      "spices", 2, "count", 1),
+  di("Everything Bagel",    "spices", 1, "count", 1),
+  di("Dill",                "spices", 1, "count", 1),
+  di("Parsley",             "spices", 1, "count", 1),
+  di("Coriander",           "spices", 1, "count", 1),
+  di("Ginger Powder",       "spices", 1, "count", 1),
+  di("Allspice",            "spices", 1, "count", 1),
+  di("Cloves",              "spices", 1, "count", 1),
+  // Baking
+  di("All-Purpose Flour",   "baking", 1, "lbs",    1),
+  di("Bread Flour",         "baking", 1, "lbs",    1),
+  di("Sugar",               "baking", 1, "lbs",    1),
+  di("Brown Sugar",         "baking", 1, "lbs",    1),
+  di("Powdered Sugar",      "baking", 1, "lbs",    1),
+  di("Baking Soda",         "baking", 1, "count",  1),
+  di("Baking Powder",       "baking", 1, "count",  1),
+  di("Yeast",               "baking", 1, "count",  1),
+  di("Cornstarch",          "baking", 1, "count",  1),
+  di("Vanilla Extract",     "baking", 1, "count",  1),
+  di("Cocoa Powder",        "baking", 1, "count",  1),
+  di("Chocolate Chips",     "baking", 1, "bags",   1),
+  di("Sprinkles",           "baking", 1, "count",  1),
+  di("Food Coloring",       "baking", 1, "count",  1),
+  di("Cream of Tartar",     "baking", 1, "count",  1),
+  di("Gelatin",             "baking", 1, "boxes",  1),
+  di("Sweetened Condensed", "baking", 2, "cans",   1),
+  di("Evaporated Milk",     "baking", 2, "cans",   1),
+  di("Molasses",            "baking", 1, "count",  1),
+  di("Corn Syrup",          "baking", 1, "count",  1),
+  // Snacks
+  di("Potato Chips",        "snacks", 2, "bags",   1),
+  di("Tortilla Chips",      "snacks", 2, "bags",   1),
+  di("Pretzels",            "snacks", 1, "bags",   1),
+  di("Popcorn",             "snacks", 2, "bags",   1),
+  di("Mixed Nuts",          "snacks", 1, "count",  1),
+  di("Almonds",             "snacks", 1, "bags",   1),
+  di("Cashews",             "snacks", 1, "bags",   1),
+  di("Trail Mix",           "snacks", 1, "bags",   1),
+  di("Granola Bars",        "snacks", 1, "boxes",  1),
+  di("Rice Cakes",          "snacks", 1, "bags",   1),
+  di("Fruit Snacks",        "snacks", 2, "boxes",  1),
+  di("Applesauce Pouches",  "snacks", 6, "count",  3),
+  di("Peanut Butter Cups",  "snacks", 1, "bags",   1),
+  di("Chocolate Bar",       "snacks", 2, "count",  1),
+  di("Cookies",             "snacks", 1, "bags",   1),
+  di("Animal Crackers",     "snacks", 1, "count",  1),
+  di("Cheese Crackers",     "snacks", 2, "boxes",  1),
+  di("Cereal",              "snacks", 2, "boxes",  1),
+  di("Dried Mango",         "snacks", 1, "bags",   1),
+  di("Raisins",             "snacks", 1, "bags",   1),
+  // Beverages
+  di("Coffee",              "beverages", 1, "bags",   1),
+  di("Tea Bags",            "beverages", 1, "boxes",  1),
+  di("Sparkling Water",     "beverages", 12,"count",  6),
+  di("Soda",                "beverages", 12,"count",  6),
+  di("Sports Drink",        "beverages", 6, "count",  3),
+  di("Coconut Water",       "beverages", 4, "count",  2),
+  di("Protein Powder",      "beverages", 1, "count",  1),
+  di("Hot Cocoa Mix",       "beverages", 1, "boxes",  1),
+  di("Lemonade Mix",        "beverages", 1, "count",  1),
+  di("Wine",                "beverages", 2, "count",  1),
+  di("Beer",                "beverages", 6, "count",  3),
 ];
 
 const TREND_COLORS = [
@@ -345,6 +622,27 @@ const css = `
     from { opacity: 0; transform: translateY(16px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+
+  /* Settings */
+  .settings-section { margin-bottom: 24px; }
+  .settings-section-title { font-family: ${FONT}; font-size: 15px; font-weight: 600; color: #3D2B1F; margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+  .settings-card { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 4px rgba(61,43,31,0.07); margin-bottom: 10px; }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .settings-row-info { flex: 1; }
+  .settings-row-label { font-size: 15px; font-weight: 500; color: #3D2B1F; }
+  .settings-row-sub { font-size: 12px; color: #9E8070; margin-top: 2px; }
+  .settings-btn { padding: 9px 16px; border-radius: 10px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; font-family: ${FONT_BODY}; transition: all 0.18s; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .settings-btn-danger { background: #FEE2D5; color: #C0392B; }
+  .settings-btn-danger:hover { background: #FECDB8; }
+  .settings-btn-primary { background: #3D2B1F; color: #F5E6D3; }
+  .settings-btn-primary:hover { background: #5A3E2B; }
+  .settings-btn-accent { background: #F0E8DF; color: #7A5C45; }
+  .settings-btn-accent:hover { background: #E5D5C6; }
+  .confirm-overlay { position: fixed; inset: 0; background: rgba(61,43,31,0.5); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .confirm-box { background: #FDF6EE; border-radius: 20px; padding: 24px; width: 100%; max-width: 340px; text-align: center; }
+  .confirm-box h3 { font-family: ${FONT}; font-size: 19px; font-weight: 700; color: #3D2B1F; margin-bottom: 8px; }
+  .confirm-box p { font-size: 14px; color: #7A5C45; line-height: 1.5; margin-bottom: 20px; }
+  .confirm-btns { display: flex; gap: 10px; }
 
   /* Bottom nav */
   .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: #fff; border-top: 1.5px solid #EDE0D4; display: flex; padding: 8px 0 16px; z-index: 100; }
@@ -724,6 +1022,100 @@ function TrendsTab({ items, log }) {
   );
 }
 
+// ── Settings Tab ─────────────────────────────────────────────────
+function SettingsTab({ onReset, onLoadDemo, itemCount, logCount }) {
+  const [confirm, setConfirm] = useState(null); // "reset" | "demo"
+
+  return (
+    <div>
+      <div className="trends-header-card" style={{marginBottom:16}}>
+        <div style={{fontFamily:"'Lora',serif",fontSize:18,fontWeight:700,marginBottom:4,display:"flex",alignItems:"center",gap:8}}>
+          <Settings size={20}/>Settings
+        </div>
+        <p style={{fontSize:13,opacity:0.75,lineHeight:1.5}}>Manage your inventory data and app preferences.</p>
+      </div>
+
+      {/* Stats */}
+      <div className="settings-section">
+        <div className="settings-section-title"><BarChart2 size={15}/>Your Data</div>
+        <div className="settings-card">
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div style={{textAlign:"center",padding:"10px 0"}}>
+              <div style={{fontFamily:"'Lora',serif",fontSize:28,fontWeight:700,color:"#3D2B1F"}}>{itemCount}</div>
+              <div style={{fontSize:12,color:"#9E8070",marginTop:2}}>items tracked</div>
+            </div>
+            <div style={{textAlign:"center",padding:"10px 0"}}>
+              <div style={{fontFamily:"'Lora',serif",fontSize:28,fontWeight:700,color:"#3D2B1F"}}>{logCount}</div>
+              <div style={{fontSize:12,color:"#9E8070",marginTop:2}}>consumption logs</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Demo mode */}
+      <div className="settings-section">
+        <div className="settings-section-title"><Zap size={15}/>Demo Mode</div>
+        <div className="settings-card">
+          <div className="settings-row">
+            <div className="settings-row-info">
+              <div className="settings-row-label">Load demo inventory</div>
+              <div className="settings-row-sub">Populates 250+ items across 8 categories so you can explore all features right away.</div>
+            </div>
+          </div>
+          <button className="settings-btn settings-btn-primary" style={{marginTop:12,width:"100%",justifyContent:"center"}}
+            onClick={()=>setConfirm("demo")}>
+            <Zap size={14}/>Load demo inventory
+          </button>
+        </div>
+      </div>
+
+      {/* Reset */}
+      <div className="settings-section">
+        <div className="settings-section-title"><AlertOctagon size={15}/>Danger Zone</div>
+        <div className="settings-card">
+          <div className="settings-row">
+            <div className="settings-row-info">
+              <div className="settings-row-label">Reset everything</div>
+              <div className="settings-row-sub">Deletes all items, categories, and consumption history. This cannot be undone.</div>
+            </div>
+          </div>
+          <button className="settings-btn settings-btn-danger" style={{marginTop:12,width:"100%",justifyContent:"center"}}
+            onClick={()=>setConfirm("reset")}>
+            <RotateCcw size={14}/>Reset all data
+          </button>
+        </div>
+      </div>
+
+      {/* Confirm dialog */}
+      {confirm && (
+        <div className="confirm-overlay" onClick={()=>setConfirm(null)}>
+          <div className="confirm-box" onClick={e=>e.stopPropagation()}>
+            {confirm === "reset" ? (
+              <>
+                <h3>Reset everything?</h3>
+                <p>All your items, categories, and consumption history will be permanently deleted. This cannot be undone.</p>
+                <div className="confirm-btns">
+                  <button className="btn btn-secondary" style={{flex:1}} onClick={()=>setConfirm(null)}>Cancel</button>
+                  <button className="btn btn-primary" style={{flex:1,background:"#C0392B"}} onClick={()=>{onReset();setConfirm(null);}}>Yes, reset</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3>Load demo inventory?</h3>
+                <p>This will replace your current items and categories with 250+ demo items. Your consumption history will be kept.</p>
+                <div className="confirm-btns">
+                  <button className="btn btn-secondary" style={{flex:1}} onClick={()=>setConfirm(null)}>Cancel</button>
+                  <button className="btn btn-primary" style={{flex:1}} onClick={()=>{onLoadDemo();setConfirm(null);}}>Yes, load demo</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main App ─────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab]               = useState("inventory");
@@ -731,7 +1123,7 @@ export default function App() {
   const [syncing, setSyncing]       = useState(true);
   const [animClass, setAnimClass]   = useState("slide-in-up");
   const prevTabRef                  = useRef("inventory");
-  const TAB_ORDER                   = ["inventory", "shopping", "meals", "trends"];
+  const TAB_ORDER                   = ["inventory", "shopping", "meals", "trends", "settings"];
 
   const switchTab = (newTab) => {
     if (newTab === tab) return;
@@ -856,6 +1248,30 @@ export default function App() {
     });
   };
 
+  const handleReset = () => {
+    const defaultCats = {
+      pantry:    { label: "Pantry",    iconKey: "Package",     color: "#C8956C" },
+      fridge:    { label: "Fridge",    iconKey: "Thermometer", color: "#7BAFC4" },
+      freezer:   { label: "Freezer",   iconKey: "Wind",        color: "#9BC4CB" },
+      household: { label: "Household", iconKey: "Home",        color: "#B5935A" },
+    };
+    setItems([]);
+    setLog([]);
+    setCategories(defaultCats);
+    if (userId) {
+      setDoc(doc(db, "users", userId, "data", "items"), { items: [], categories: defaultCats }).catch(console.warn);
+      setDoc(doc(db, "users", userId, "data", "log"),   { entries: [] }).catch(console.warn);
+    }
+  };
+
+  const handleLoadDemo = () => {
+    setItems(DEMO_ITEMS);
+    setCategories(DEMO_CATEGORIES);
+    if (userId) {
+      setDoc(doc(db, "users", userId, "data", "items"), { items: DEMO_ITEMS, categories: DEMO_CATEGORIES }).catch(console.warn);
+    }
+  };
+
   const lowItems  = items.filter(i => i.qty <= i.low);
   const shopItems = lowItems;
 
@@ -884,7 +1300,7 @@ export default function App() {
 
   const filteredItems = items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()));
   const grouped = Object.keys(categories).reduce((acc, cat) => {
-    acc[cat] = filteredItems.filter(i => i.category === cat);
+    acc[cat] = filteredItems.filter(i => i.category === cat).sort((a,b) => a.name.localeCompare(b.name));
     return acc;
   }, {});
 
@@ -893,6 +1309,7 @@ export default function App() {
     { key:"shopping",  Icon:ShoppingCart,     label:"Shopping"  },
     { key:"meals",     Icon:UtensilsCrossed,  label:"Meals"     },
     { key:"trends",    Icon:TrendingDown,     label:"Trends"    },
+    { key:"settings",  Icon:Settings,         label:"Settings"  },
   ];
 
   return (
@@ -1040,6 +1457,9 @@ export default function App() {
 
           {/* TRENDS */}
           {tab === "trends" && <TrendsTab items={items} log={log}/>}
+
+          {/* SETTINGS */}
+          {tab === "settings" && <SettingsTab onReset={handleReset} onLoadDemo={handleLoadDemo} itemCount={items.length} logCount={log.length}/>}
         </div>
         </div>
 
