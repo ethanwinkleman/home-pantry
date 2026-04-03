@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+
 import {
   Package, Thermometer, Wind, Home, ShoppingCart, UtensilsCrossed,
   Plus, Minus, Trash2, Search, X, Bell, AlertTriangle, CheckCircle2,
-  ChefHat, Clock, RefreshCw, PartyPopper, ShoppingBag, Sparkles,
+  ChefHat, Clock, PartyPopper, ShoppingBag, Sparkles,
   TrendingDown, BarChart2, Calendar, Filter, ChevronDown, FolderPlus, Tag
 } from "lucide-react";
 
@@ -106,10 +107,6 @@ function monthLabel(key) {
   const [y, m] = key.split("-");
   return new Date(+y, +m-1, 1).toLocaleDateString("en-US", { month:"short", year:"numeric" });
 }
-function daysAgo(isoDate) {
-  return Math.max(1, Math.round((Date.now() - new Date(isoDate).getTime()) / 86400000));
-}
-
 // ── CSS ──────────────────────────────────────────────────────────
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:wght@300;400;500;600&display=swap');
@@ -218,6 +215,7 @@ const css = `
   .meal-desc { font-size: 13px; color: #7A5C45; line-height: 1.5; margin-bottom: 10px; }
   .meal-ingredients { display: flex; flex-wrap: wrap; gap: 5px; }
   .ingredient-tag { background: #FDF6EE; border: 1px solid #E5D5C6; color: #7A5C45; font-size: 11px; padding: 3px 8px; border-radius: 20px; font-weight: 500; }
+  .ingredient-missing { background: #FEE2D5; border-color: #F5B8A0; color: #C0392B; }
   .loading-dots { display: flex; gap: 6px; justify-content: center; padding: 30px; }
   .dot { width: 10px; height: 10px; border-radius: 50%; background: #C8956C; animation: bounce 1.2s infinite; }
   .dot:nth-child(2) { animation-delay: 0.2s; }
@@ -307,6 +305,29 @@ const css = `
   .color-swatch { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2.5px solid transparent; transition: all 0.18s; }
   .color-swatch.selected { border-color: #3D2B1F; transform: scale(1.15); }
 
+  /* Tab transition */
+  .tab-viewport { position: relative; overflow: hidden; }
+  .tab-panel {
+    animation-duration: 0.28s;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    animation-fill-mode: both;
+  }
+  .tab-panel.slide-in-right  { animation-name: slideInRight; }
+  .tab-panel.slide-in-left   { animation-name: slideInLeft; }
+  .tab-panel.slide-in-up     { animation-name: slideInUp; }
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(32px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-32px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes slideInUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
   /* Bottom nav */
   .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: #fff; border-top: 1.5px solid #EDE0D4; display: flex; padding: 8px 0 16px; z-index: 100; }
   .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; border: none; background: none; cursor: pointer; padding: 6px 2px; transition: all 0.18s; color: #C4A98A; }
@@ -315,61 +336,100 @@ const css = `
   .nav-label { font-size: 9px; font-weight: 600; letter-spacing: 0.2px; text-transform: uppercase; font-family: ${FONT_BODY}; }
 `;
 
-// ── Meal Suggestions ─────────────────────────────────────────────
+// ── Meal Suggestions (local matching) ────────────────────────────
 function MealSuggestions({ items }) {
-  const [meals, setMeals]     = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [fetched, setFetched] = useState(false);
+  const [search, setSearch]       = useState("");
+  const [cuisine, setCuisine]     = useState("All");
+  const [maxTime, setMaxTime]     = useState(30);
+  const [showAll, setShowAll]     = useState(false);
+  const [recipes, setRecipes]     = useState([]);
 
-  const inventoryStr = items
-    .filter(i => i.category !== "household")
-    .map(i => `${i.name} (${i.qty} ${i.unit})`).join(", ");
+  useEffect(() => {
+    import("./recipes").then(m => setRecipes(m.RECIPES || []));
+  }, []);
 
-  const fetchMeals = useCallback(async () => {
-    setLoading(true); setMeals([]);
-    try {
-      const res  = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, messages:[{
-          role:"user",
-          content:`I have these ingredients: ${inventoryStr}. Suggest 4 meals I can make. Respond ONLY with a JSON array, no markdown. Each item: { "name":string, "time":string, "description":string, "ingredients":string[] }`
-        }]})
-      });
-      const data = await res.json();
-      const text = data.content.map(b=>b.text||"").join("");
-      setMeals(JSON.parse(text.replace(/```json|```/g,"").trim()));
-      setFetched(true);
-    } catch { setMeals([{name:"Couldn't load suggestions",time:"",description:"Please try again.",ingredients:[]}]); }
-    setLoading(false);
-  }, [inventoryStr]);
+  // Normalise inventory to lowercase ingredient names
+  const inventory = useMemo(() =>
+    new Set(items.filter(i => i.category !== "household").map(i => i.name.toLowerCase())),
+    [items]
+  );
+
+  // Match recipes: ALL ingredients must be in inventory
+  const matched = useMemo(() => {
+    return recipes.filter(r => {
+      const timeNum = parseInt(r.time);
+      if (timeNum > maxTime) return false;
+      if (cuisine !== "All" && r.cuisine !== cuisine) return false;
+      if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false;
+      return r.ingredients.every(ing => inventory.has(ing.toLowerCase()));
+    });
+  }, [inventory, cuisine, maxTime, search]);
+
+  const cuisines = ["All", ...Array.from(new Set(recipes.map(r => r.cuisine))).sort()];
+  const visible  = showAll ? matched : matched.slice(0, 12);
 
   return (
     <div>
       <div className="meal-intro">
         <div className="meal-intro-header"><ChefHat size={20}/>What's for dinner?</div>
-        <p>Based on {items.filter(i=>i.category!=="household").length} food items in your inventory.</p>
-        <button className="meal-btn" onClick={fetchMeals} disabled={loading}>
-          {loading ? <><RefreshCw size={15} className="spin"/>Thinking…</>
-           : fetched ? <><RefreshCw size={15}/>Refresh ideas</>
-           : <><Sparkles size={15}/>Suggest meals</>}
-        </button>
-      </div>
-      {loading && <div className="loading-dots"><div className="dot"/><div className="dot"/><div className="dot"/></div>}
-      {meals.map((m,i) => (
-        <div className="meal-card" key={i} style={{animationDelay:`${i*0.08}s`}}>
-          <div className="meal-card-header">
-            <div className="meal-name">{m.name}</div>
-            {m.time && <div className="meal-time"><Clock size={11}/>{m.time}</div>}
-          </div>
-          <div className="meal-desc">{m.description}</div>
-          <div className="meal-ingredients">{(m.ingredients||[]).map((g,j)=><span className="ingredient-tag" key={j}>{g}</span>)}</div>
+        <p>Matching against 500 quick recipes using {inventory.size} ingredients in your inventory.</p>
+        <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}}>
+          <span style={{background:"rgba(255,255,255,0.15)",padding:"3px 10px",borderRadius:20,fontSize:12,fontWeight:600}}>
+            {matched.length} match{matched.length !== 1 ? "es" : ""}
+          </span>
         </div>
-      ))}
-      {!loading && !fetched && (
+      </div>
+
+      {/* Filters */}
+      <div style={{marginBottom:14}}>
+        <div className="search-bar" style={{marginBottom:10}}>
+          <Search size={16}/>
+          <input placeholder="Search recipes…" value={search} onChange={e=>setSearch(e.target.value)}/>
+          {search && <button className="search-clear" onClick={()=>setSearch("")}><X size={16}/></button>}
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+          {cuisines.map(c=>(
+            <button key={c} className={`range-btn ${cuisine===c?"active":""}`} onClick={()=>setCuisine(c)}>{c}</button>
+          ))}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <Clock size={14} color="#9E8070"/>
+          <span style={{fontSize:12,color:"#9E8070",minWidth:80}}>Under {maxTime} min</span>
+          <input type="range" min={10} max={30} step={5} value={maxTime}
+            onChange={e=>setMaxTime(Number(e.target.value))}
+            style={{flex:1,accentColor:"#C8956C"}}/>
+        </div>
+      </div>
+
+      {matched.length === 0 && (
         <div className="empty-state">
           <div className="empty-icon"><ChefHat size={28}/></div>
-          <p>Tap the button above and I'll figure out what you can cook right now.</p>
+          <p>No exact matches right now. Try adding more pantry staples like garlic, olive oil, or soy sauce to unlock more recipes.</p>
         </div>
+      )}
+
+      {visible.map((m, i) => (
+        <div className="meal-card" key={m.id} style={{animationDelay:`${Math.min(i,6)*0.05}s`}}>
+          <div className="meal-card-header">
+            <div className="meal-name">{m.name}</div>
+            <div className="meal-time"><Clock size={11}/>{m.time}</div>
+          </div>
+          <div style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
+            <span style={{fontSize:11,color:"#9E8070",background:"#F0E8DF",padding:"2px 8px",borderRadius:20,fontWeight:500}}>{m.cuisine}</span>
+          </div>
+          <div className="meal-desc">{m.description}</div>
+          <div className="meal-ingredients">
+            {m.ingredients.map((ing,j)=>(
+              <span className={`ingredient-tag ${inventory.has(ing.toLowerCase())?"":"ingredient-missing"}`} key={j}>{ing}</span>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {matched.length > 12 && !showAll && (
+        <button className="clear-btn" style={{marginTop:4}} onClick={()=>setShowAll(true)}>
+          Show all {matched.length} matches
+        </button>
       )}
     </div>
   );
@@ -404,7 +464,6 @@ function MultiLineChart({ seriesData, months }) {
   const cH = H - PAD.t - PAD.b;
   const allVals = seriesData.flatMap(s => s.values);
   const max = Math.max(...allVals, 1);
-  const xStep = months.length > 1 ? cW / (months.length - 1) : cW;
 
   return (
     <div className="line-chart-wrap">
@@ -543,7 +602,6 @@ function TrendsTab({ items, log }) {
 
   // Overall stats
   const totalEntries = filteredLog.length;
-  const totalConsumed = filteredLog.reduce((s,e) => s+e.qty, 0);
 
   if (!log.length) return (
     <div>
@@ -651,6 +709,18 @@ function TrendsTab({ items, log }) {
 // ── Main App ─────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab]               = useState("inventory");
+  const [animClass, setAnimClass]   = useState("slide-in-up");
+  const prevTabRef                  = useRef("inventory");
+  const TAB_ORDER                   = ["inventory", "shopping", "meals", "trends"];
+
+  const switchTab = (newTab) => {
+    if (newTab === tab) return;
+    const oldIdx = TAB_ORDER.indexOf(tab);
+    const newIdx = TAB_ORDER.indexOf(newTab);
+    setAnimClass(newIdx > oldIdx ? "slide-in-right" : "slide-in-left");
+    prevTabRef.current = tab;
+    setTab(newTab);
+  };
   const [categories, setCategories] = useState(() => loadCategories());
   const [showAddCat, setShowAddCat] = useState(false);
   const [newCat, setNewCat]         = useState({ label: "", iconKey: "Package", color: "#C8956C" });
@@ -779,7 +849,8 @@ export default function App() {
           </div>
         </div>
 
-        <div className="content">
+        <div className="content tab-viewport">
+        <div key={tab} className={`tab-panel ${animClass}`}>
 
           {/* INVENTORY */}
           {tab === "inventory" && (
@@ -906,6 +977,7 @@ export default function App() {
           {/* TRENDS */}
           {tab === "trends" && <TrendsTab items={items} log={log}/>}
         </div>
+        </div>
 
         {/* FAB */}
         {tab === "inventory" && (
@@ -995,7 +1067,7 @@ export default function App() {
         {/* Bottom Nav */}
         <div className="bottom-nav">
           {NAV.map(({key,Icon,label}) => (
-            <button key={key} className={`nav-btn ${tab===key?"active":""}`} onClick={()=>setTab(key)}>
+            <button key={key} className={`nav-btn ${tab===key?"active":""}`} onClick={()=>switchTab(key)}>
               <Icon size={21}/>
               <span className="nav-label">{label}</span>
             </button>
