@@ -1196,7 +1196,15 @@ export default function App() {
   const lowItems=items.filter(i=>i.qty<=i.low);
   const updateQty=(id,delta)=>{if(delta<0){const item=items.find(i=>i.id===id);if(item&&item.qty>0)setLog(p=>[...p,{id:Date.now(),name:item.name,qty:1,unit:item.unit,date:new Date().toISOString()}]);}setItems(p=>p.map(i=>i.id===id?{...i,qty:Math.max(0,i.qty+delta)}:i));};
   const deleteItem=id=>setItems(p=>p.filter(i=>i.id!==id));
-  const toggleShop=id=>setShopChecked(p=>({...p,[id]:!p[id]}));
+  const toggleShop = (id) => {
+    const nowChecked = !shopChecked[id];
+    setShopChecked(p => ({...p, [id]: nowChecked}));
+    // When checking off: add 1 to inventory qty (restocking)
+    // When unchecking: subtract 1 back
+    setItems(prev => prev.map(i =>
+      i.id === id ? { ...i, qty: Math.max(0, i.qty + (nowChecked ? 1 : -1)) } : i
+    ));
+  };
   const clearChecked=()=>setShopChecked({});
 
   const addItem=()=>{
@@ -1363,7 +1371,7 @@ export default function App() {
                 <div className="section-title">Shopping List</div>
                 <div className="section-sub">{lowItems.length>0?`${lowItems.length} items running low — auto-generated from your inventory`:"Your pantry is well stocked!"}</div>
                 {lowItems.length===0&&<div className="empty-state"><div className="empty-icon"><PartyPopper size={28}/></div><p>Nothing to buy right now.</p></div>}
-                {lowItems.map(item=>{const shopCat=categories[item.category]||{label:item.category,iconKey:"Package",color:"#C8956C"};const CatIcon2=iconFromKey(shopCat.iconKey);const checked=shopChecked[item.id];return(<div key={item.id} className={`shop-item ${checked?"checked":""}`} onClick={()=>toggleShop(item.id)}><div className="shop-check">{checked&&<CheckCircle2 size={14}/>}</div><div className="shop-item-info"><div className="shop-item-name">{item.name}</div><div className="shop-item-cat"><CatIcon2 size={12} color={shopCat.color}/>{shopCat.label} · {item.qty} {item.unit} left</div></div><ShoppingBag size={16} color="#C4A98A"/></div>);})}
+                {lowItems.map(item=>{const shopCat=categories[item.category]||{label:item.category,iconKey:"Package",color:"#C8956C"};const CatIcon2=iconFromKey(shopCat.iconKey);const checked=shopChecked[item.id];return(<div key={item.id} className={`shop-item ${checked?"checked":""}`} onClick={()=>toggleShop(item.id)}><div className="shop-check">{checked&&<CheckCircle2 size={14}/>}</div><div className="shop-item-info"><div className="shop-item-name">{item.name}</div><div className="shop-item-cat"><CatIcon2 size={12} color={shopCat.color}/>{shopCat.label} · {shopChecked[item.id] ? <><CheckCircle2 size={11}/> restocked — now {item.qty} {item.unit}</> : <>{item.qty} {item.unit} left</>}</div></div><ShoppingBag size={16} color="#C4A98A"/></div>);})}
                 {Object.values(shopChecked).some(Boolean)&&<button className="clear-btn" onClick={clearChecked}>Clear checked items</button>}
               </>
             )}
