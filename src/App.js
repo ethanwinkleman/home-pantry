@@ -231,10 +231,6 @@ function parseRecipeText(text) {
   // ── Ingredient line detection ────────────────────────────────────
   // Starts with a fraction, number, or bullet, followed by a unit or ingredient word
   const FRACTIONS = "½⅓⅔¼¾⅛⅜⅝⅞";
-  const ingLineRe = new RegExp(
-    `^([-•*]\\s*)?([\\d/${FRACTIONS}][\\d/.\\s${FRACTIONS}]*)?\\s*(cup|tablespoon|teaspoon|tbsp|tsp|oz|lb|pound|ounce|gram|g|kg|ml|liter|litre|clove|cloves|pinch|dash|can|jar|pkg|package|stick|slice|large|medium|small|bunch|handful)?`,
-    "i"
-  );
   const looksLikeIngredient = (l) => {
     const stripped = l.replace(/^[-•*]\s*/, "");
     // Starts with a number or fraction character
