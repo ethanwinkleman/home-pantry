@@ -1,4 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { initializeApp } from "firebase/app";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, deleteDoc } from "firebase/firestore";
 
 import {
   Package, Thermometer, Wind, Home, ShoppingCart, UtensilsCrossed,
@@ -6,6 +9,19 @@ import {
   ChefHat, Clock, PartyPopper, ShoppingBag, Sparkles,
   TrendingDown, BarChart2, Calendar, Filter, ChevronDown, FolderPlus, Tag
 } from "lucide-react";
+
+// ── Firebase setup ────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDB6Ee49nhAu-ca9r1OABY-0Y8YHirRR7Y",
+  authDomain: "home-pantry-f1f52.firebaseapp.com",
+  projectId: "home-pantry-f1f52",
+  storageBucket: "home-pantry-f1f52.firebasestorage.app",
+  messagingSenderId: "544293545",
+  appId: "1:544293545:web:af600cc0029877e6cd9fb8"
+};
+const firebaseApp = initializeApp(firebaseConfig);
+const auth        = getAuth(firebaseApp);
+const db          = getFirestore(firebaseApp);
 
 // ── Constants ─────────────────────────────────────────────────────
 // Icon map for serializable category storage
@@ -223,6 +239,7 @@ const css = `
   .dot:nth-child(3) { animation-delay: 0.4s; }
   @keyframes bounce { 0%,80%,100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
   @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100% { opacity:0.3; transform:scale(0.8); } 50% { opacity:1; transform:scale(1.2); } }
   .spin { animation: spin 1s linear infinite; }
 
   /* Alerts */
@@ -710,6 +727,8 @@ function TrendsTab({ items, log }) {
 // ── Main App ─────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab]               = useState("inventory");
+  const [userId, setUserId]         = useState(null);
+  const [syncing, setSyncing]       = useState(true);
   const [animClass, setAnimClass]   = useState("slide-in-up");
   const prevTabRef                  = useRef("inventory");
   const TAB_ORDER                   = ["inventory", "shopping", "meals", "trends"];
@@ -775,9 +794,50 @@ export default function App() {
     }, 320);
   };
 
-  // Persist items & log & categories to localStorage
-  useEffect(() => { saveItems(items); }, [items]);
-  useEffect(() => { saveLog(log); }, [log]);
+  // ── Firebase auth + realtime sync ──────────────────────────────
+  useEffect(() => {
+    // Sign in anonymously on first visit
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUserId(user.uid);
+        // Load items from Firestore (one-time fetch for initial data)
+        try {
+          const itemsSnap = await getDoc(doc(db, "users", user.uid, "data", "items"));
+          if (itemsSnap.exists()) {
+            const data = itemsSnap.data();
+            if (data.items)      { setItems(data.items);      saveItems(data.items); }
+            if (data.categories) { setCategories(data.categories); saveCategories(data.categories); }
+          }
+          const logSnap = await getDoc(doc(db, "users", user.uid, "data", "log"));
+          if (logSnap.exists() && logSnap.data().entries) {
+            const entries = logSnap.data().entries;
+            setLog(entries);
+            saveLog(entries);
+          }
+        } catch(e) { console.warn("Firestore load error", e); }
+        setSyncing(false);
+      } else {
+        signInAnonymously(auth).catch(e => { console.warn("Auth error", e); setSyncing(false); });
+      }
+    });
+    return () => unsubAuth();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save items + categories to Firestore whenever they change
+  useEffect(() => {
+    saveItems(items);
+    if (!userId) return;
+    setDoc(doc(db, "users", userId, "data", "items"), { items, categories }).catch(console.warn);
+  }, [items, categories, userId]);
+
+  // Save log to Firestore whenever it changes
+  useEffect(() => {
+    saveLog(log);
+    if (!userId) return;
+    setDoc(doc(db, "users", userId, "data", "log"), { entries: log }).catch(console.warn);
+  }, [log, userId]);
+
+  // Keep categories localStorage in sync
   useEffect(() => { saveCategories(categories); }, [categories]);
 
   const addCategory = () => {
@@ -844,9 +904,12 @@ export default function App() {
         <div className="header">
           <div className="header-top" style={{marginBottom:0}}>
             <h1><Home size={20} color="#C8956C"/>Home <span>Pantry</span></h1>
-            {lowItems.length > 0 && (
-              <div className="low-badge" onClick={()=>switchTab("inventory")}><AlertTriangle size={12}/>{lowItems.length} running low</div>
-            )}
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              {syncing && <div style={{width:6,height:6,borderRadius:"50%",background:"#C8956C",animation:"pulse 1.2s infinite"}}/>}
+              {lowItems.length > 0 && (
+                <div className="low-badge" onClick={()=>switchTab("inventory")}><AlertTriangle size={12}/>{lowItems.length} running low</div>
+              )}
+            </div>
           </div>
         </div>
 
