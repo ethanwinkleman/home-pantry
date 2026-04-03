@@ -345,7 +345,7 @@ function MealSuggestions({ items }) {
   const [recipes, setRecipes]     = useState([]);
 
   useEffect(() => {
-    import("./recipes").then(m => setRecipes(m.RECIPES || []));
+    import("./recipes").then(m => setRecipes(m.RECIPES || [])); // eslint-disable-line react-hooks/exhaustive-deps
   }, []);
 
   // Normalise inventory to lowercase ingredient names
