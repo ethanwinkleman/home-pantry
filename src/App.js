@@ -2,12 +2,13 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp } from "firebase/app";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import { RECIPES as RECIPES_DATA } from "./recipes";
 
 import {
   Package, Thermometer, Wind, Home, ShoppingCart, UtensilsCrossed,
   Plus, Minus, Trash2, Search, X, Bell, AlertTriangle, CheckCircle2,
   ChefHat, Clock, PartyPopper, ShoppingBag, Sparkles,
-  TrendingDown, BarChart2, Calendar, Filter, ChevronDown, FolderPlus, Tag, Settings, RotateCcw, Zap, AlertOctagon
+  TrendingDown, BarChart2, Calendar, Filter, ChevronDown, FolderPlus, Tag, Settings, RotateCcw, Zap, AlertOctagon, Info, BookOpen, Users
 } from "lucide-react";
 
 // ── Firebase setup ────────────────────────────────────────────────
@@ -405,9 +406,29 @@ const css = `
   @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:wght@300;400;500;600&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #FDF6EE; font-family: ${FONT_BODY}; color: #3D2B1F; min-height: 100vh; }
-  .app { max-width: 430px; margin: 0 auto; min-height: 100vh; background: #FDF6EE; position: relative; overflow-x: hidden; }
+  /* ── App shell ── */
+  .app { display: flex; min-height: 100vh; background: #FDF6EE; }
 
-  /* Header */
+  /* Sidebar: hidden on mobile/tablet */
+  .sidebar { display: none; width: 240px; min-width: 240px; background: #3D2B1F; min-height: 100vh; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; }
+  .sidebar-logo { padding: 28px 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .sidebar-logo h1 { font-family: ${FONT}; font-size: 20px; color: #F5E6D3; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .sidebar-logo h1 span { color: #C8956C; font-style: italic; }
+  .sidebar-nav { flex: 1; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+  .sidebar-nav-btn { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 10px; border: none; background: transparent; color: #9E8070; cursor: pointer; font-size: 14px; font-weight: 500; font-family: ${FONT_BODY}; transition: all 0.18s; text-align: left; width: 100%; }
+  .sidebar-nav-btn:hover { background: rgba(255,255,255,0.06); color: #F5E6D3; }
+  .sidebar-nav-btn.active { background: rgba(200,149,108,0.25); color: #F5E6D3; border-left: 3px solid #C8956C; }
+  .sidebar-badge { background: #E07B39; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; margin-left: auto; }
+  .sidebar-footer { padding: 16px 10px 28px; border-top: 1px solid rgba(255,255,255,0.08); }
+  .sidebar-sync { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #9E8070; padding: 8px 14px; }
+
+  /* Main area */
+  .main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow-x: hidden; }
+
+  /* Desktop header: hidden on mobile */
+  .desktop-header { display: none; }
+
+  /* Header (mobile/tablet only) */
   .header { background: #3D2B1F; padding: 16px 20px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(61,43,31,0.18); }
   .header-top { display: flex; align-items: center; justify-content: space-between; }
   .header h1 { font-family: ${FONT}; font-size: 22px; color: #F5E6D3; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
@@ -416,24 +437,89 @@ const css = `
   .low-badge:hover { background: #C85E20; }
 
   /* Content */
-  .content { padding: 16px; padding-bottom: 88px; }
+  .content { padding: 16px; padding-bottom: 120px; }
 
   /* Category */
-  .category-section { margin-bottom: 12px; }
-  .category-header { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; padding: 10px 14px; background: #fff; border-radius: 14px; box-shadow: 0 1px 4px rgba(61,43,31,0.07); transition: background 0.18s; margin-bottom: 0; }
+  .category-section { margin-bottom: 20px; }
+
+  /* Inventory grid */
+  .inv-grid { display: grid; grid-template-columns: 1fr; gap: 0; }
+
+  /* ── Tablet (640px+) ── */
+  @media (min-width: 640px) {
+    .content { padding: 20px 24px 120px; }
+    .inv-grid { grid-template-columns: 1fr 1fr; gap: 0 16px; align-items: start; }
+    .inv-grid .category-section { margin-bottom: 16px; }
+  }
+
+  /* ── Desktop (1024px+) ── */
+  @media (min-width: 1024px) {
+    .sidebar { display: flex; }
+    .main-area { margin-left: 240px; }
+    .header { display: none; }
+    .desktop-header { display: flex; align-items: center; justify-content: space-between; padding: 28px 36px 12px; flex-shrink: 0; }
+    .desktop-header-title { font-family: ${FONT}; font-size: 28px; font-weight: 700; color: #3D2B1F; }
+    .bottom-nav { display: none; }
+    .content { padding: 16px 36px 48px; }
+    .inv-grid { grid-template-columns: 1fr 1fr 1fr; gap: 0 16px; }
+    .add-fab { right: 36px; bottom: 36px; }
+    .modal-overlay { align-items: center; }
+    .modal { border-radius: 20px; max-width: 500px; margin: 0 auto; }
+    .recipe-modal { border-radius: 20px; max-width: 580px; max-height: 85vh; margin: 0 auto; }
+    .confirm-box { border-radius: 20px; }
+  }
+  .category-header { display: flex; flex-direction: column; cursor: pointer; user-select: none; padding: 10px 14px; background: #fff; border-radius: 14px; box-shadow: 0 1px 4px rgba(61,43,31,0.07); transition: background 0.18s; margin-bottom: 0; }
   .category-header:hover { background: #FAF2EA; }
   .category-header.open { border-radius: 14px 14px 0 0; }
   .category-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .cat-header-top { display: flex; align-items: center; gap: 8px; width: 100%; }
   .category-header h2 { font-family: ${FONT}; font-size: 16px; font-weight: 600; color: #3D2B1F; }
   .cat-count { font-size: 11px; color: #9E8070; font-family: ${FONT_BODY}; margin-left: auto; margin-right: 6px; }
   .cat-chevron { color: #C4A98A; transition: transform 0.25s ease; flex-shrink: 0; }
+  .cat-health { margin-top: 8px; }
+  .cat-health-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .cat-health-label { font-size: 10px; color: #9E8070; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; font-family: ${FONT_BODY}; }
+  .cat-health-pct { font-size: 10px; font-weight: 700; font-family: ${FONT_BODY}; }
+  .cat-health-track { height: 5px; background: #F0E8DF; border-radius: 10px; overflow: hidden; }
+  .cat-health-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
+  .cat-health-info { display: inline-flex; align-items: center; gap: 4px; position: relative; cursor: help; }
+  .cat-health-info svg { color: #C4A98A; flex-shrink: 0; }
+  .cat-health-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #3D2B1F;
+    color: #F5E6D3;
+    font-size: 11px;
+    line-height: 1.4;
+    padding: 7px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+    z-index: 50;
+    font-family: ${FONT_BODY};
+    font-weight: 400;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(61,43,31,0.2);
+  }
+  .cat-health-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #3D2B1F;
+  }
+  .cat-health-info:hover .cat-health-tooltip { display: block; }
   .cat-chevron.open { transform: rotate(180deg); }
   .category-items { background: #fff; border-radius: 0 0 14px 14px; overflow: hidden; transition: max-height 0.32s ease, opacity 0.25s ease, padding 0.25s ease; box-shadow: 0 2px 6px rgba(61,43,31,0.06); }
-  .category-items.open { padding: 6px 10px 10px; }
+  .category-items.open { padding: 6px 10px 20px; }
   .category-items.closed { max-height: 0 !important; opacity: 0; padding: 0 10px; pointer-events: none; }
 
   /* Item cards */
-  .item-card { background: #fff; border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 4px rgba(61,43,31,0.07); border: 1.5px solid transparent; transition: border-color 0.2s; }
+  .item-card { background: #fff; border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 4px rgba(61,43,31,0.07); border: 1.5px solid transparent; transition: border-color 0.2s; min-height: 68px; }
   .item-card.low { border-color: #E07B39; background: #FFF8F3; }
   .item-card.item-highlight { animation: highlightPulse 1.4s ease; }
   @keyframes highlightPulse {
@@ -441,29 +527,50 @@ const css = `
     40%  { box-shadow: 0 0 0 6px rgba(200,149,108,0.25); }
     100% { box-shadow: 0 0 0 0 rgba(200,149,108,0); }
   }
-  .item-info { flex: 1; min-width: 0; }
-  .item-name { font-size: 15px; font-weight: 500; color: #3D2B1F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+  .item-name { font-size: 14px; font-weight: 500; color: #3D2B1F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .item-meta { font-size: 12px; color: #9E8070; margin-top: 3px; display: flex; align-items: center; gap: 4px; }
   .item-meta.low-text { color: #E07B39; font-weight: 500; }
-  .qty-controls { display: flex; align-items: center; gap: 8px; }
+  .qty-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
   .qty-btn { width: 28px; height: 28px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
   .qty-btn.minus { background: #F0E8DF; color: #7A5C45; }
   .qty-btn.minus:hover { background: #E5D5C6; }
   .qty-btn.plus  { background: #C8956C; color: #fff; }
   .qty-btn.plus:hover { background: #B5804F; }
   .qty-num { font-size: 15px; font-weight: 600; color: #3D2B1F; min-width: 20px; text-align: center; }
-  .unit-label { font-size: 12px; color: #9E8070; min-width: 32px; text-align: center; }
+  .unit-label { font-size: 11px; color: #9E8070; min-width: 36px; text-align: left; flex-shrink: 0; }
   .delete-btn { background: none; border: none; cursor: pointer; color: #C4A98A; padding: 2px 4px; transition: color 0.15s; display: flex; align-items: center; }
   .delete-btn:hover { color: #C0392B; }
 
   /* FAB */
-  .add-fab { position: fixed; bottom: 88px; right: calc(50% - 215px + 16px); width: 52px; height: 52px; border-radius: 50%; background: #3D2B1F; color: #F5E6D3; border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(61,43,31,0.3); display: flex; align-items: center; justify-content: center; transition: transform 0.2s, background 0.2s; z-index: 50; }
+  .add-fab { position: fixed; bottom: 88px; right: 16px; width: 52px; height: 52px; border-radius: 50%; background: #3D2B1F; color: #F5E6D3; border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(61,43,31,0.3); display: flex; align-items: center; justify-content: center; transition: transform 0.2s, background 0.2s; z-index: 50; }
   .add-fab:hover { transform: scale(1.08); background: #5A3E2B; }
+  @media (min-width: 1024px) {
+    .add-fab { bottom: 32px; right: 40px; }
+  }
 
   /* Modal */
   .modal-overlay { position: fixed; inset: 0; background: rgba(61,43,31,0.45); z-index: 200; display: flex; align-items: flex-end; justify-content: center; }
   .modal { background: #FDF6EE; border-radius: 24px 24px 0 0; padding: 24px 20px 40px; width: 100%; max-width: 430px; animation: slideUp 0.28s ease; }
+  @media (min-width: 640px) {
+    .modal { border-radius: 20px; max-width: 480px; animation: fadeIn 0.22s ease; }
+    .modal-overlay { align-items: center; }
+  }
   @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-screen { animation: modalScreenIn 0.25s cubic-bezier(0.4,0,0.2,1) both; }
+  .modal-screen-back { animation: modalScreenBack 0.25s cubic-bezier(0.4,0,0.2,1) both; }
+  @keyframes modalScreenIn  { from { opacity:0; transform:translateX(28px);  } to { opacity:1; transform:translateX(0); } }
+  @keyframes modalScreenBack { from { opacity:0; transform:translateX(-28px); } to { opacity:1; transform:translateX(0); } }
+  .modal-screen-title { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+  .modal-back-btn { background:none; border:none; cursor:pointer; color:#C4A98A; padding:2px; display:flex; align-items:center; transition:color 0.15s; }
+  .modal-back-btn:hover { color:#3D2B1F; }
+  .dup-item-card { background:#FFF3EA; border:1.5px solid #F5B87A; border-radius:14px; padding:14px; margin-bottom:16px; }
+  .dup-item-card-name { font-family:${FONT}; font-size:17px; font-weight:600; color:#3D2B1F; margin-bottom:4px; }
+  .dup-item-card-meta { font-size:13px; color:#7A5C45; display:flex; align-items:center; gap:6px; }
+  .dup-qty-row { display:flex; align-items:center; gap:12px; background:#fff; border-radius:12px; padding:12px 14px; margin-bottom:16px; border:1.5px solid #E5D5C6; }
+  .dup-qty-label { flex:1; font-size:14px; color:#3D2B1F; }
+  .dup-qty-result { font-family:${FONT}; font-size:20px; font-weight:700; color:#3D2B1F; }
+  .dup-qty-unit { font-size:12px; color:#9E8070; }
   .modal h3 { font-family: ${FONT}; font-size: 20px; color: #3D2B1F; margin-bottom: 18px; font-weight: 700; }
   .form-row { margin-bottom: 14px; }
   .form-label { display: block; font-size: 12px; font-weight: 600; color: #7A5C45; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -527,6 +634,7 @@ const css = `
   .alert-tag-btn { cursor: pointer; transition: background 0.18s; display: inline-flex; align-items: center; gap: 4px; }
   .alert-tag-btn::after { content: '→'; font-size: 11px; opacity: 0.8; }
   .alert-tag-btn:hover { background: rgba(255,255,255,0.35); }
+  .alert-overflow { background: rgba(255,255,255,0.12); font-size: 12px; padding: 3px 9px; border-radius: 20px; font-weight: 600; font-style: italic; }
   .search-bar { background: #F0E8DF; border-radius: 12px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; color: #B5935A; }
   .search-bar input { flex: 1; background: none; border: none; outline: none; font-size: 15px; color: #3D2B1F; font-family: ${FONT_BODY}; }
   .search-bar input::placeholder { color: #B5935A; }
@@ -593,12 +701,57 @@ const css = `
   .add-cat-btn:hover { background: #FFF3EA; }
   .cat-delete-btn { background: none; border: none; cursor: pointer; color: #C4A98A; padding: 2px 4px; transition: color 0.15s; display: flex; align-items: center; margin-left: 4px; }
   .cat-delete-btn:hover { color: #C0392B; }
+  .cat-add-btn { background: none; border: none; cursor: pointer; color: #C4A98A; padding: 3px 5px; transition: all 0.15s; display: flex; align-items: center; border-radius: 6px; margin-right: 2px; }
+  .cat-add-btn:hover { color: #C8956C; background: rgba(200,149,108,0.12); }
   .icon-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 8px; }
   .icon-opt { width: 100%; aspect-ratio: 1; border-radius: 10px; border: 1.5px solid #E5D5C6; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.18s; color: #7A5C45; }
   .icon-opt.selected { border-color: #C8956C; background: #FFF3EA; color: #C8956C; }
   .color-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .color-swatch { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2.5px solid transparent; transition: all 0.18s; }
   .color-swatch.selected { border-color: #3D2B1F; transform: scale(1.15); }
+
+  /* Recipe modal */
+  .recipe-modal { background: #FDF6EE; border-radius: 24px 24px 0 0; padding: 0; width: 100%; max-width: 430px; animation: slideUp 0.28s ease; max-height: 88vh; display: flex; flex-direction: column; }
+  @media (min-width: 640px) {
+    .recipe-modal { border-radius: 20px; max-width: 560px; max-height: 80vh; animation: fadeIn 0.22s ease; }
+  }
+  @media (min-width: 1024px) {
+    .recipe-modal { max-width: 640px; }
+  }
+  .recipe-modal-header { padding: 20px 20px 0; flex-shrink: 0; }
+  .recipe-modal-scroll { overflow-y: auto; padding: 0 20px 40px; flex: 1; }
+  .recipe-modal-title { font-family: ${FONT}; font-size: 22px; font-weight: 700; color: #3D2B1F; margin-bottom: 6px; line-height: 1.2; }
+  .recipe-modal-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .recipe-modal-tag { display: flex; align-items: center; gap: 4px; background: #F0E8DF; color: #7A5C45; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
+  .recipe-section-title { font-family: ${FONT}; font-size: 15px; font-weight: 600; color: #3D2B1F; margin: 18px 0 10px; display: flex; align-items: center; gap: 7px; }
+  .recipe-ingredient-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #F0E8DF; }
+  .recipe-ingredient-row:last-child { border-bottom: none; }
+  .recipe-ingredient-name { font-size: 14px; color: #3D2B1F; font-weight: 500; }
+  .recipe-ingredient-name.missing { color: #C0392B; }
+  .recipe-ingredient-qty { font-size: 13px; color: #9E8070; }
+  .recipe-step { display: flex; gap: 12px; margin-bottom: 14px; }
+  .recipe-step-num { width: 26px; height: 26px; border-radius: 50%; background: #3D2B1F; color: #F5E6D3; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .recipe-step-text { font-size: 14px; color: #3D2B1F; line-height: 1.55; flex: 1; }
+  .recipe-close-btn { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 50%; background: #F0E8DF; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #7A5C45; transition: background 0.18s; }
+  .recipe-close-btn:hover { background: #E5D5C6; }
+  .recipe-modal-divider { height: 1px; background: #EDE0D4; margin: 4px 0 16px; }
+
+  /* Content wrapper */
+  .content-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Bottom nav — mobile only */
+  .nav-sidebar-header { display: none; }
+
+  /* Tablet bottom nav wider */
+  @media (min-width: 640px) {
+    .bottom-nav { left: 50%; transform: translateX(-50%); max-width: 640px; width: 100%; border-radius: 0; border-left: 1.5px solid #EDE0D4; border-right: 1.5px solid #EDE0D4; }
+  }
+
+  /* Desktop: full sidebar layout */
+  @media (min-width: 1024px) {
+    .content { max-width: 1200px; }
+    .desktop-header-title { font-family: ${FONT}; font-size: 28px; font-weight: 700; color: #3D2B1F; }
+  }
 
   /* Tab transition */
   .tab-viewport { position: relative; overflow: hidden; }
@@ -645,41 +798,81 @@ const css = `
   .confirm-btns { display: flex; gap: 10px; }
 
   /* Bottom nav */
-  .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: #fff; border-top: 1.5px solid #EDE0D4; display: flex; padding: 8px 0 16px; z-index: 100; }
+  /* Bottom nav (mobile) */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1.5px solid #EDE0D4; display: flex; padding: 8px 0 16px; z-index: 100; justify-content: space-around; }
   .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; border: none; background: none; cursor: pointer; padding: 6px 2px; transition: all 0.18s; color: #C4A98A; }
   .nav-btn.active { color: #3D2B1F; }
   .nav-btn.active svg { transform: scale(1.12); }
   .nav-label { font-size: 9px; font-weight: 600; letter-spacing: 0.2px; text-transform: uppercase; font-family: ${FONT_BODY}; }
+
+  /* Tablet: wider bottom nav */
+  @media (min-width: 640px) {
+    .bottom-nav { max-width: 100%; }
+    .nav-label { font-size: 10px; }
+  }
+
+  /* Desktop: hide bottom nav (replaced by sidebar) */
+  @media (min-width: 1024px) {
+    .bottom-nav { display: none; }
+  }
 `;
 
 // ── Meal Suggestions (local matching) ────────────────────────────
-function MealSuggestions({ items }) {
+function MealSuggestions({ items, onSelect }) {
   const [search, setSearch]       = useState("");
   const [cuisine, setCuisine]     = useState("All");
   const [maxTime, setMaxTime]     = useState(30);
   const [showAll, setShowAll]     = useState(false);
-  const [recipes, setRecipes]     = useState([]);
-
-  useEffect(() => {
-    import("./recipes").then(m => setRecipes(m.RECIPES || [])); // eslint-disable-line react-hooks/exhaustive-deps
-  }, []);
+  const recipes = RECIPES_DATA || [];
 
   // Normalise inventory to lowercase ingredient names
-  const inventory = useMemo(() =>
-    new Set(items.filter(i => i.category !== "household").map(i => i.name.toLowerCase())),
+  const inventoryNames = useMemo(() =>
+    items.filter(i => i.category !== "household").map(i => i.name.toLowerCase()),
     [items]
   );
 
-  // Match recipes: ALL ingredients must be in inventory
+  // Fuzzy match helper — pure function, no closure dependencies
+  function fuzzyMatch(ing, names) {
+    const ingL = ing.toLowerCase().replace(/s$/, "");
+    return names.some(name => {
+      const nameL = name.replace(/s$/, "");
+      return nameL.includes(ingL) || ingL.includes(nameL);
+    });
+  }
+
+  // Convenience wrapper for JSX
+  const hasIngredient = (ing) => fuzzyMatch(ing, inventoryNames);
+
+  // Match recipes: ALL ingredients must fuzzy-match inventory
   const matched = useMemo(() => {
+    const names = items
+      .filter(i => i.category !== "household")
+      .map(i => i.name.toLowerCase());
+    if (!recipes.length || !names.length) return [];
     return recipes.filter(r => {
-      const timeNum = parseInt(r.time);
-      if (timeNum > maxTime) return false;
+      if (parseInt(r.time) > maxTime) return false;
       if (cuisine !== "All" && r.cuisine !== cuisine) return false;
       if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false;
-      return r.ingredients.every(ing => inventory.has(ing.toLowerCase()));
+      return r.ingredients.every(ing => fuzzyMatch(ing, names));
     });
-  }, [inventory, cuisine, maxTime, search, recipes]);
+  }, [items, cuisine, maxTime, search, recipes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Near misses — top 6 closest recipes by match percentage
+  const nearMisses = useMemo(() => {
+    const names = items
+      .filter(i => i.category !== "household")
+      .map(i => i.name.toLowerCase());
+    if (!recipes.length || !names.length) return [];
+    return recipes
+      .filter(r => parseInt(r.time) <= maxTime && (cuisine === "All" || r.cuisine === cuisine))
+      .map(r => {
+        const matchCount = r.ingredients.filter(ing => fuzzyMatch(ing, names)).length;
+        return { recipe: r, matchCount, total: r.ingredients.length };
+      })
+      .filter(m => m.matchCount < m.total)
+      .sort((a, b) => (b.matchCount / b.total) - (a.matchCount / a.total))
+      .slice(0, 6);
+  }, [items, recipes, maxTime, cuisine]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cuisines = ["All", ...Array.from(new Set(recipes.map(r => r.cuisine))).sort()];
   const visible  = showAll ? matched : matched.slice(0, 12);
@@ -688,7 +881,7 @@ function MealSuggestions({ items }) {
     <div>
       <div className="meal-intro">
         <div className="meal-intro-header"><ChefHat size={20}/>What's for dinner?</div>
-        <p>Matching against 500 quick recipes using {inventory.size} ingredients in your inventory.</p>
+        <p>Matching against 500 quick recipes using {inventoryNames.length} ingredients in your inventory.</p>
         <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}}>
           <span style={{background:"rgba(255,255,255,0.15)",padding:"3px 10px",borderRadius:20,fontSize:12,fontWeight:600}}>
             {matched.length} match{matched.length !== 1 ? "es" : ""}
@@ -717,15 +910,43 @@ function MealSuggestions({ items }) {
         </div>
       </div>
 
-      {matched.length === 0 && (
+      {/* Debug: show what inventoryNames looks like */}
+      {matched.length === 0 && inventoryNames.length === 0 && (
         <div className="empty-state">
           <div className="empty-icon"><ChefHat size={28}/></div>
-          <p>No exact matches right now. Try adding more pantry staples like garlic, olive oil, or soy sauce to unlock more recipes.</p>
+          <p>No ingredients detected. Make sure you have items in your inventory that are not in the Household category.</p>
         </div>
       )}
 
+      {matched.length === 0 && inventoryNames.length > 0 && (
+        <>
+          <div className="empty-state" style={{paddingBottom:0}}>
+            <div className="empty-icon"><ChefHat size={28}/></div>
+            <p style={{marginBottom:8}}>No exact matches yet. Here are your closest recipes — red tags are missing ingredients.</p>
+          </div>
+
+          {nearMisses.map((m, i) => (
+            <div className="meal-card" key={m.recipe.id} style={{animationDelay:`${i*0.05}s`}}>
+              <div className="meal-card-header">
+                <div className="meal-name">{m.recipe.name}</div>
+                <div className="meal-time"><Clock size={11}/>{m.recipe.time}</div>
+              </div>
+              <div style={{fontSize:12,color:"#9E8070",marginBottom:8}}>
+                {m.matchCount}/{m.total} ingredients matched
+              </div>
+              <div className="meal-ingredients">
+                {m.recipe.ingredients.map((ing,j)=>(
+                  <span className={`ingredient-tag ${hasIngredient(ing)?"":"ingredient-missing"}`} key={j}>{ing}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+
       {visible.map((m, i) => (
-        <div className="meal-card" key={m.id} style={{animationDelay:`${Math.min(i,6)*0.05}s`}}>
+        <div className="meal-card" key={m.id} style={{animationDelay:`${Math.min(i,6)*0.05}s`, cursor:"pointer"}}
+          onClick={() => onSelect(m)}>
           <div className="meal-card-header">
             <div className="meal-name">{m.name}</div>
             <div className="meal-time"><Clock size={11}/>{m.time}</div>
@@ -736,8 +957,11 @@ function MealSuggestions({ items }) {
           <div className="meal-desc">{m.description}</div>
           <div className="meal-ingredients">
             {m.ingredients.map((ing,j)=>(
-              <span className={`ingredient-tag ${inventory.has(ing.toLowerCase())?"":"ingredient-missing"}`} key={j}>{ing}</span>
+              <span className={`ingredient-tag ${hasIngredient(ing)?"":"ingredient-missing"}`} key={j}>{ing}</span>
             ))}
+          </div>
+          <div style={{marginTop:10,fontSize:12,color:"#C8956C",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
+            <BookOpen size={12}/> View recipe
           </div>
         </div>
       ))}
@@ -1119,6 +1343,7 @@ function SettingsTab({ onReset, onLoadDemo, itemCount, logCount }) {
 // ── Main App ─────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab]               = useState("inventory");
+  const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [userId, setUserId]         = useState(null);
   const [syncing, setSyncing]       = useState(true);
   const [animClass, setAnimClass]   = useState("slide-in-up");
@@ -1142,6 +1367,7 @@ export default function App() {
   const [search, setSearch]         = useState("");
   const [shopChecked, setShopChecked] = useState({});
   const [newItem, setNewItem]       = useState({ name:"", category:"pantry", qty:1, unit:"count", low:1 });
+  const [duplicateItem, setDuplicateItem] = useState(null); // existing item with same name
 
   // Collapsed categories — persisted to localStorage
   const [collapsed, setCollapsed] = useState(() => {
@@ -1293,8 +1519,31 @@ export default function App() {
 
   const addItem = () => {
     if (!newItem.name.trim()) return;
+    // Check for case-insensitive duplicate
+    const existing = items.find(i => i.name.toLowerCase() === newItem.name.trim().toLowerCase());
+    if (existing && !duplicateItem) {
+      setDuplicateItem(existing);
+      return;
+    }
+    if (existing && duplicateItem) {
+      // Merge — add qty to existing item
+      setItems(prev => prev.map(i =>
+        i.id === existing.id ? { ...i, qty: i.qty + Number(newItem.qty) } : i
+      ));
+    } else {
+      // New item
+      setItems(prev => [...prev, { ...newItem, id: Date.now(), qty: Number(newItem.qty), low: Number(newItem.low) }]);
+    }
+    setNewItem({ name:"", category:"pantry", qty:1, unit:"count", low:1 });
+    setDuplicateItem(null);
+    setShowAdd(false);
+  };
+
+  const addItemAsNew = () => {
+    // Force add as a separate item even if duplicate exists
     setItems(prev => [...prev, { ...newItem, id: Date.now(), qty: Number(newItem.qty), low: Number(newItem.low) }]);
     setNewItem({ name:"", category:"pantry", qty:1, unit:"count", low:1 });
+    setDuplicateItem(null);
     setShowAdd(false);
   };
 
@@ -1317,7 +1566,53 @@ export default function App() {
       <style>{css}</style>
       <div className="app">
 
-        {/* Header */}
+        {/* ── Sidebar (desktop only) ── */}
+        <div className="sidebar">
+          <div className="sidebar-logo">
+            <h1><Home size={18} color="#C8956C"/>Home <span>Pantry</span></h1>
+          </div>
+          <div className="sidebar-nav">
+            {NAV.map(({key, Icon, label}) => (
+              <button key={key} className={`sidebar-nav-btn ${tab===key?"active":""}`} onClick={()=>switchTab(key)}>
+                <Icon size={18}/>
+                {label}
+                {key === "inventory" && lowItems.length > 0 && (
+                  <span className="sidebar-badge">{lowItems.length}</span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="sidebar-footer">
+            <div className="sidebar-sync">
+              {syncing
+                ? <><div style={{width:6,height:6,borderRadius:"50%",background:"#C8956C",animation:"pulse 1.2s infinite"}}/> Syncing...</>
+                : <><div style={{width:6,height:6,borderRadius:"50%",background:"#6B9E8A"}}/> Synced</>
+              }
+            </div>
+          </div>
+        </div>
+
+        {/* ── Main area ── */}
+        <div className="main-area">
+
+        <div className="content-wrapper">
+        {/* Desktop header */}
+        <div className="desktop-header">
+          <div className="desktop-header-title">{
+            tab === "inventory" ? "Inventory" :
+            tab === "shopping"  ? "Shopping List" :
+            tab === "meals"     ? "What's for Dinner?" :
+            tab === "trends"    ? "Trends" : "Settings"
+          }</div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            {syncing && <div style={{width:6,height:6,borderRadius:"50%",background:"#C8956C",animation:"pulse 1.2s infinite"}}/>}
+            {lowItems.length > 0 && (
+              <div className="low-badge" onClick={()=>switchTab("inventory")}><AlertTriangle size={12}/>{lowItems.length} running low</div>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile/tablet header */}
         <div className="header">
           <div className="header-top" style={{marginBottom:0}}>
             <h1><Home size={20} color="#C8956C"/>Home <span>Pantry</span></h1>
@@ -1340,13 +1635,16 @@ export default function App() {
                 <div className="alerts-banner">
                   <div className="alerts-banner-header"><Bell size={16}/>Running low</div>
                   <div className="alert-items">
-                    {lowItems.map(i => (
+                    {lowItems.slice(0, 7).map(i => (
                       <span
                         className="alert-tag alert-tag-btn"
                         key={i.id}
                         onClick={() => scrollToItem(i.id)}
                       >{i.name}</span>
                     ))}
+                    {lowItems.length > 7 && (
+                      <span className="alert-overflow">+{lowItems.length - 7} more</span>
+                    )}
                   </div>
                 </div>
               )}
@@ -1355,11 +1653,12 @@ export default function App() {
                 <input placeholder="Search items…" value={search} onChange={e=>setSearch(e.target.value)}/>
                 {search && <button className="search-clear" onClick={()=>setSearch("")}><X size={16}/></button>}
               </div>
+              <div className="inv-grid">
               {Object.entries(categories).map(([catKey, cat]) => {
                 const CatIcon = iconFromKey(cat.iconKey);
                 const catItems = grouped[catKey] || [];
                 const isOpen = !collapsed[catKey];
-                const estimatedHeight = catItems.length * 72 + 20;
+                const estimatedHeight = catItems.length * 90 + 60;
                 const isEmpty = catItems.length === 0;
                 return (
                   <div className="category-section" key={catKey}>
@@ -1368,18 +1667,53 @@ export default function App() {
                       onClick={() => !isEmpty && toggleCollapsed(catKey)}
                       style={isEmpty ? { cursor: "default" } : {}}
                     >
-                      <div className="category-icon" style={{background:cat.color+"22"}}>
-                        <CatIcon size={16} color={cat.color}/>
+                      {/* Top row: icon, title, count, chevron */}
+                      <div className="cat-header-top">
+                        <div className="category-icon" style={{background:cat.color+"22"}}>
+                          <CatIcon size={16} color={cat.color}/>
+                        </div>
+                        <h2>{cat.label}</h2>
+                        <span className="cat-count">{catItems.length} items</span>
+                        <button className="cat-add-btn" title={`Add item to ${cat.label}`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setNewItem(p => ({...p, category: catKey}));
+                            setDuplicateItem(null);
+                            setShowAdd(true);
+                          }}>
+                          <Plus size={14}/>
+                        </button>
+                        {isEmpty
+                          ? <button className="cat-delete-btn" title="Delete empty category"
+                              onClick={e => { e.stopPropagation(); deleteCategory(catKey); }}>
+                              <Trash2 size={15}/>
+                            </button>
+                          : <ChevronDown size={16} className={`cat-chevron ${isOpen ? "open" : ""}`}/>
+                        }
                       </div>
-                      <h2>{cat.label}</h2>
-                      <span className="cat-count">{catItems.length} items</span>
-                      {isEmpty
-                        ? <button className="cat-delete-btn" title="Delete empty category"
-                            onClick={e => { e.stopPropagation(); deleteCategory(catKey); }}>
-                            <Trash2 size={15}/>
-                          </button>
-                        : <ChevronDown size={16} className={`cat-chevron ${isOpen ? "open" : ""}`}/>
-                      }
+                      {/* Health bar */}
+                      {!isEmpty && (() => {
+                        const wellStocked = catItems.filter(i => i.qty > i.low).length;
+                        const pct = Math.round((wellStocked / catItems.length) * 100);
+                        const barColor = pct >= 80 ? "#6B9E8A" : pct >= 50 ? "#C8956C" : "#C0392B";
+                        return (
+                          <div className="cat-health">
+                            <div className="cat-health-row">
+                              <span className="cat-health-info">
+                                <span className="cat-health-label">Above minimum</span>
+                                <Info size={11}/>
+                                <span className="cat-health-tooltip">
+                                  % of items with quantity above their low stock threshold
+                                </span>
+                              </span>
+                              <span className="cat-health-pct" style={{color: barColor}}>{pct}%</span>
+                            </div>
+                            <div className="cat-health-track">
+                              <div className="cat-health-fill" style={{width: pct + "%", background: barColor}}/>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div
                       className={`category-items ${isOpen && !isEmpty ? "open" : "closed"}`}
@@ -1388,7 +1722,7 @@ export default function App() {
                       {catItems.map(item => {
                         const isLow = item.qty <= item.low;
                         return (
-                          <div className={`item-card ${isLow?"low":""}`} key={item.id} style={{marginBottom:6}} ref={el => itemRefs.current[item.id] = el}>
+                          <div className={`item-card ${isLow?"low":""}`} key={item.id} ref={el => itemRefs.current[item.id] = el}>
                             <div className="item-info">
                               <div className="item-name">{item.name}</div>
                               <div className={`item-meta ${isLow?"low-text":""}`}>
@@ -1409,6 +1743,7 @@ export default function App() {
                   </div>
                 );
               })}
+              </div>
               <button className="add-cat-btn" onClick={()=>setShowAddCat(true)}>
                 <FolderPlus size={16}/> New Category
               </button>
@@ -1453,7 +1788,7 @@ export default function App() {
           )}
 
           {/* MEALS */}
-          {tab === "meals" && <MealSuggestions items={items}/>}
+          {tab === "meals" && <MealSuggestions items={items} onSelect={setSelectedRecipe}/>}
 
           {/* TRENDS */}
           {tab === "trends" && <TrendsTab items={items} log={log}/>}
@@ -1470,42 +1805,84 @@ export default function App() {
 
         {/* Add Item Modal */}
         {showAdd && (
-          <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowAdd(false)}>
-            <div className="modal">
-              <h3>Add Item</h3>
-              <div className="form-row">
-                <label className="form-label">Item Name</label>
-                <input className="form-input" placeholder="e.g. Olive Oil" value={newItem.name}
-                  onChange={e=>setNewItem(p=>({...p,name:e.target.value}))}/>
-              </div>
-              <div className="form-row">
-                <label className="form-label">Category</label>
-                <select className="form-select" value={newItem.category} onChange={e=>setNewItem(p=>({...p,category:e.target.value}))}>
-                  {Object.entries(categories).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-                </select>
-              </div>
-              <div className="form-row-2">
-                <div className="form-row" style={{marginBottom:0}}>
-                  <label className="form-label">Quantity</label>
-                  <input className="form-input" type="number" min="0" value={newItem.qty}
-                    onChange={e=>setNewItem(p=>({...p,qty:e.target.value}))}/>
+          <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&(setShowAdd(false),setDuplicateItem(null))}>
+            <div className="modal" style={{overflow:"hidden"}}>
+
+              {/* ── Screen 1: Add Item form ── */}
+              {!duplicateItem && (
+                <div className="modal-screen-back" key="add-form">
+                  <h3>Add Item</h3>
+                  <div className="form-row">
+                    <label className="form-label">Item Name</label>
+                    <input className="form-input" placeholder="e.g. Olive Oil" value={newItem.name}
+                      onChange={e=>{ setDuplicateItem(null); setNewItem(p=>({...p,name:e.target.value})); }}/>
+                  </div>
+                  <div className="form-row">
+                    <label className="form-label">Category</label>
+                    <select className="form-select" value={newItem.category} onChange={e=>setNewItem(p=>({...p,category:e.target.value}))}>
+                      {Object.entries(categories).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-row-2">
+                    <div className="form-row" style={{marginBottom:0}}>
+                      <label className="form-label">Quantity</label>
+                      <input className="form-input" type="number" min="0" value={newItem.qty}
+                        onChange={e=>setNewItem(p=>({...p,qty:e.target.value}))}/>
+                    </div>
+                    <div className="form-row" style={{marginBottom:0}}>
+                      <label className="form-label">Unit</label>
+                      <select className="form-select" value={newItem.unit} onChange={e=>setNewItem(p=>({...p,unit:e.target.value}))}>
+                        {UNITS.map(u=><option key={u}>{u}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="form-row" style={{marginTop:14}}>
+                    <label className="form-label">Low Stock Alert When Below</label>
+                    <input className="form-input" type="number" min="0" value={newItem.low}
+                      onChange={e=>setNewItem(p=>({...p,low:e.target.value}))}/>
+                  </div>
+                  <div className="btn-row">
+                    <button className="btn btn-secondary" onClick={()=>{ setDuplicateItem(null); setShowAdd(false); }}>Cancel</button>
+                    <button className="btn btn-primary" onClick={addItem}>Add Item</button>
+                  </div>
                 </div>
-                <div className="form-row" style={{marginBottom:0}}>
-                  <label className="form-label">Unit</label>
-                  <select className="form-select" value={newItem.unit} onChange={e=>setNewItem(p=>({...p,unit:e.target.value}))}>
-                    {UNITS.map(u=><option key={u}>{u}</option>)}
-                  </select>
+              )}
+
+              {/* ── Screen 2: Duplicate found ── */}
+              {duplicateItem && (
+                <div className="modal-screen" key="dup-screen">
+                  <div className="modal-screen-title">
+                    <button className="modal-back-btn" onClick={()=>setDuplicateItem(null)}>
+                      <ChevronDown size={20} style={{transform:"rotate(90deg)"}}/> 
+                    </button>
+                    <span style={{fontFamily:"'Lora',serif",fontSize:20,fontWeight:700,color:"#3D2B1F"}}>Already exists</span>
+                  </div>
+
+                  <div className="dup-item-card">
+                    <div className="dup-item-card-name">{duplicateItem.name}</div>
+                    <div className="dup-item-card-meta">
+                      <span style={{background:categories[duplicateItem.category]?.color+"22",color:categories[duplicateItem.category]?.color,fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20}}>
+                        {(categories[duplicateItem.category]||{label:duplicateItem.category}).label}
+                      </span>
+                      Currently: <strong>{duplicateItem.qty} {duplicateItem.unit}</strong>
+                    </div>
+                  </div>
+
+                  <div className="dup-qty-row">
+                    <div className="dup-qty-label">Adding <strong>{newItem.qty} {newItem.unit}</strong> will bring total to</div>
+                    <div>
+                      <span className="dup-qty-result">{duplicateItem.qty + Number(newItem.qty)}</span>
+                      <span className="dup-qty-unit"> {newItem.unit}</span>
+                    </div>
+                  </div>
+
+                  <div className="btn-row">
+                    <button className="btn btn-secondary" onClick={addItemAsNew}>Add as New</button>
+                    <button className="btn btn-primary" onClick={addItem}>Merge +{newItem.qty}</button>
+                  </div>
                 </div>
-              </div>
-              <div className="form-row" style={{marginTop:14}}>
-                <label className="form-label">Low Stock Alert When Below</label>
-                <input className="form-input" type="number" min="0" value={newItem.low}
-                  onChange={e=>setNewItem(p=>({...p,low:e.target.value}))}/>
-              </div>
-              <div className="btn-row">
-                <button className="btn btn-secondary" onClick={()=>setShowAdd(false)}>Cancel</button>
-                <button className="btn btn-primary" onClick={addItem}>Add Item</button>
-              </div>
+              )}
+
             </div>
           </div>
         )}
@@ -1548,8 +1925,51 @@ export default function App() {
           </div>
         )}
 
+        {/* Recipe Detail Modal */}
+        {selectedRecipe && (
+          <div className="modal-overlay" onClick={() => setSelectedRecipe(null)}>
+            <div className="recipe-modal" onClick={e => e.stopPropagation()}>
+              <div className="recipe-modal-header" style={{position:"relative"}}>
+                <button className="recipe-close-btn" onClick={() => setSelectedRecipe(null)}><X size={16}/></button>
+                <div className="recipe-modal-title">{selectedRecipe.name}</div>
+                <div className="recipe-modal-meta">
+                  <div className="recipe-modal-tag"><Clock size={12}/>{selectedRecipe.time}</div>
+                  <div className="recipe-modal-tag">{selectedRecipe.cuisine}</div>
+                  {selectedRecipe.servings && (
+                    <div className="recipe-modal-tag"><Users size={12}/>Serves {selectedRecipe.servings}</div>
+                  )}
+                </div>
+                <div className="recipe-modal-divider"/>
+              </div>
+              <div className="recipe-modal-scroll">
+                <div className="recipe-section-title"><BookOpen size={15}/>Ingredients</div>
+                {(selectedRecipe.ingredientsWithQty || selectedRecipe.ingredients.map(i => ({name:i, qty:""}))).map((ing, i) => (
+                  <div className="recipe-ingredient-row" key={i}>
+                    <span className="recipe-ingredient-name">{ing.name}</span>
+                    <span className="recipe-ingredient-qty">{ing.qty}</span>
+                  </div>
+                ))}
+                {selectedRecipe.steps && selectedRecipe.steps.length > 0 && (
+                  <>
+                    <div className="recipe-section-title" style={{marginTop:24}}><ChefHat size={15}/>Instructions</div>
+                    {selectedRecipe.steps.map((step, i) => (
+                      <div className="recipe-step" key={i}>
+                        <div className="recipe-step-num">{i+1}</div>
+                        <div className="recipe-step-text">{step}</div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        </div>{/* end content-wrapper */}
+
         {/* Bottom Nav */}
         <div className="bottom-nav">
+
           {NAV.map(({key,Icon,label}) => (
             <button key={key} className={`nav-btn ${tab===key?"active":""}`} onClick={()=>switchTab(key)}>
               <Icon size={21}/>
@@ -1557,7 +1977,8 @@ export default function App() {
             </button>
           ))}
         </div>
-      </div>
+      </div>{/* end main-area */}
+      </div>{/* end app */}
     </>
   );
 }
