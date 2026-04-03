@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="32" fill="#3D2B1F"/>
+
+  <!-- House roof -->
+  <polygon points="32,10 54,30 10,30" fill="#C8956C"/>
+
+  <!-- House body -->
+  <rect x="14" y="29" width="36" height="24" rx="2" fill="#F5E6D3"/>
+
+  <!-- Door -->
+  <rect x="26" y="38" width="12" height="15" rx="2" fill="#C8956C"/>
+
+  <!-- Pantry shelf lines on house body -->
+  <line x1="14" y1="37" x2="50" y2="37" stroke="#C8956C" stroke-width="1.5" opacity="0.4"/>
+  <line x1="14" y1="44" x2="50" y2="44" stroke="#C8956C" stroke-width="1.5" opacity="0.4"/>
+
+  <!-- Chimney -->
+  <rect x="38" y="14" width="6" height="10" rx="1" fill="#3D2B1F"/>
+</svg>

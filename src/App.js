@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import { initializeApp } from "firebase/app";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
@@ -192,31 +193,167 @@ function monthLabel(key) { const [y,m] = key.split("-"); return new Date(+y,+m-1
 
 // ── Parse pasted recipe text ──────────────────────────────────────
 function parseRecipeText(text) {
-  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-  const name = lines[0] || "My Recipe";
+  const rawLines = text.split("\n").map(l => l.trim());
+
+  // ── Noise filter: skip junk lines from recipe websites ────────────
+  const isNoiseLine = (l) => {
+    if (!l) return true;
+    // Serving multipliers like "1/2x", "1x", "2x", "Original recipe (1X) yields..."
+    if (/^[\d./]+x$/i.test(l)) return true;
+    if (/^original recipe/i.test(l)) return true;
+    // "Local Offers", zip codes, "Buy all X ingredients", "Add to cart"
+    if (/^local offer/i.test(l)) return true;
+    if (/^\d{5}$/.test(l)) return true;
+    if (/^__.*__$/.test(l)) return true;
+    if (/^[A-Za-z\s]+,\s*[A-Z]{2}$/.test(l)) return true; // city, STATE
+    if (/^buy all/i.test(l)) return true;
+    if (/^add to ?cart/i.test(l)) return true;
+    // Nutrition labels, ratings, review counts
+    if (/^nutrition facts/i.test(l)) return true;
+    if (/^(calories|protein|fat|carb|sodium|fiber|sugar):/i.test(l)) return true;
+    if (/^\d+ (rating|review|star)/i.test(l)) return true;
+    // Ad / social noise
+    if (/^(share|print|pin|save|jump to)/i.test(l)) return true;
+    if (/^(advertisement|sponsored)/i.test(l)) return true;
+    // Very short lines that aren't measurements (likely UI chrome)
+    if (l.length < 3) return true;
+    return false;
+  };
+
+  const lines = rawLines.filter(l => !isNoiseLine(l));
+
+  // ── Section header detection ──────────────────────────────────────
+  const isIngHeader  = (l) => /^(ingredient|what you|you'll need)/i.test(l);
+  const isStepHeader = (l) => /^(instruction|direction|method|how to|preparation|step|to make|for the)/i.test(l);
+  // Sub-section headers within ingredients like "Brownies:", "Frosting:", "For the sauce:"
+  const isSubSection = (l) => /^[A-Z][^:]{1,30}:$/.test(l) || /^(for the|for |to make )/i.test(l);
+
+  // ── Ingredient line detection ────────────────────────────────────
+  // Starts with a fraction, number, or bullet, followed by a unit or ingredient word
+  const FRACTIONS = "½⅓⅔¼¾⅛⅜⅝⅞";
+  const ingLineRe = new RegExp(
+    `^([-•*]\\s*)?([\\d/${FRACTIONS}][\\d/.\\s${FRACTIONS}]*)?\\s*(cup|tablespoon|teaspoon|tbsp|tsp|oz|lb|pound|ounce|gram|g|kg|ml|liter|litre|clove|cloves|pinch|dash|can|jar|pkg|package|stick|slice|large|medium|small|bunch|handful)?`,
+    "i"
+  );
+  const looksLikeIngredient = (l) => {
+    const stripped = l.replace(/^[-•*]\s*/, "");
+    // Starts with a number or fraction character
+    if (/^[\d½⅓⅔¼¾⅛⅜⅝⅞]/.test(stripped)) return true;
+    // Starts with a bullet
+    if (/^[-•*]/.test(l)) return true;
+    return false;
+  };
+
+  // ── Step line detection ──────────────────────────────────────────
+  const looksLikeStep = (l) => {
+    // Numbered step: "1.", "1)", "Step 1"
+    if (/^\d+[.)\s]/.test(l)) return true;
+    if (/^step\s+\d+/i.test(l)) return true;
+    // Long sentence starting with a verb (bake, mix, stir, heat, etc.)
+    if (l.length > 40 && /^(preheat|heat|melt|mix|stir|combine|add|place|bake|cook|pour|spread|let|remove|bring|chop|dice|slice|whisk|fold|season|drain|rinse|prepare|grease|line|roll|cut|serve|transfer|allow|set|make|beat|cream|sift)/i.test(l)) return true;
+    return false;
+  };
+
+  // ── Find recipe name ─────────────────────────────────────────────
+  // Rules (checked in order of confidence):
+  // 1. A line that looks like a proper title: Title Case or ALL CAPS, 3-60 chars,
+  //    not a section header, not an ingredient, not a step
+  // 2. Falls back to the first clean non-noise line
+
+  const looksLikeTitle = (l) => {
+    if (l.length < 3 || l.length > 80) return false;
+    if (isIngHeader(l) || isStepHeader(l) || isSubSection(l)) return false;
+    if (looksLikeIngredient(l) || looksLikeStep(l)) return false;
+    // Should not be a sentence (no period mid-line) or a URL
+    if (l.includes("http") || l.includes("www.")) return false;
+    if (/[.!?]/.test(l) && l.length > 40) return false;
+    // Should not be all lowercase (descriptions tend to be)
+    const words = l.split(/\s+/);
+    const capitalised = words.filter(w => w[0] && w[0] === w[0].toUpperCase()).length;
+    // At least half the words start with a capital, or it's short (≤4 words)
+    return capitalised / words.length >= 0.5 || words.length <= 4;
+  };
+
+  let name = "My Recipe";
+
+  // First pass: prefer a proper-looking title
+  for (const l of lines) {
+    if (looksLikeTitle(l)) {
+      name = l.replace(/^#+\s*/, "").trim();
+      break;
+    }
+  }
+
+  // Second pass fallback: first clean non-noise, non-header, non-ingredient line
+  if (name === "My Recipe") {
+    for (const l of lines) {
+      if (!isIngHeader(l) && !isStepHeader(l) && !isSubSection(l) && !looksLikeIngredient(l) && !looksLikeStep(l) && l.length > 2) {
+        name = l.replace(/^#+\s*/, "").trim();
+        break;
+      }
+    }
+  }
+
+  // ── Parse ingredients and steps in order ─────────────────────────
   const ingredients = [];
   const steps = [];
   let mode = null;
-  const ingMarkers  = /^(ingredient|what you('ll)? need|you('ll)? need)/i;
-  const stepMarkers = /^(instruction|direction|method|step|how to|preparation)/i;
-  const bulletRe = /^[-•*]\s*/;
-  const numRe    = /^\d+[.)]\s*/;
-  for (let i = 1; i < lines.length; i++) {
-    const l = lines[i];
-    if (ingMarkers.test(l))  { mode = "ing";  continue; }
-    if (stepMarkers.test(l)) { mode = "step"; continue; }
-    const isBullet = bulletRe.test(l) || numRe.test(l);
-    const clean = l.replace(bulletRe,"").replace(numRe,"").trim();
-    if (!clean) continue;
-    if (mode === "ing" || (mode === null && isBullet && steps.length === 0)) { ingredients.push(clean); }
-    else if (mode === "step" || (isBullet && ingredients.length > 0))        { steps.push(clean); }
-    else if (mode === null) { ingredients.push(clean); }
+
+  for (const l of lines) {
+    if (l === name) continue;
+
+    if (isIngHeader(l))  { mode = "ing";  continue; }
+    if (isStepHeader(l)) { mode = "step"; continue; }
+    if (isSubSection(l)) {
+      // Sub-section headers within ingredients — stay in ing mode, skip line
+      if (mode === "ing" || (!mode && ingredients.length > 0)) continue;
+      // Sub-section under steps — stay in step mode
+      if (mode === "step") continue;
+      continue;
+    }
+
+    const isIng  = looksLikeIngredient(l);
+    const isStep = looksLikeStep(l);
+
+    if (mode === "ing") {
+      if (isStep && !isIng) { mode = "step"; }
+      else {
+        // Clean bullet prefix
+        const clean = l.replace(/^[-•*]\s*/, "").trim();
+        if (clean) ingredients.push(clean);
+        continue;
+      }
+    }
+
+    if (mode === "step") {
+      // Clean numbered prefix
+      const clean = l.replace(/^\d+[.)\s]+/, "").trim();
+      if (clean) steps.push(clean);
+      continue;
+    }
+
+    // No mode yet — infer from content
+    if (isIng && !isStep) {
+      mode = "ing";
+      const clean = l.replace(/^[-•*]\s*/, "").trim();
+      if (clean) ingredients.push(clean);
+    } else if (isStep) {
+      mode = "step";
+      const clean = l.replace(/^\d+[.)\s]+/, "").trim();
+      if (clean) steps.push(clean);
+    }
   }
+
   return {
     id: "custom_" + Date.now(),
-    name, time:"30 min", cuisine:"Custom", description:"My custom recipe.", servings:4, isCustom:true,
-    ingredients: ingredients.map(l => { const p = l.split(/\s+/); return p.slice(Math.min(2,p.length>1?1:0)).join(" ").toLowerCase() || l.toLowerCase(); }),
-    ingredientsWithQty: ingredients.map(l => ({ name:l, qty:"" })),
+    name,
+    time: "30 min",
+    cuisine: "Custom",
+    description: "My custom recipe.",
+    servings: 4,
+    isCustom: true,
+    ingredients: ingredients.map(l => l.toLowerCase()),
+    ingredientsWithQty: ingredients.map(l => ({ name: l, qty: "" })),
     steps,
   };
 }
@@ -665,13 +802,12 @@ function AddCustomRecipeModal({ onClose, onSave }) {
 }
 
 // ── Meal Suggestions ──────────────────────────────────────────────
-function MealSuggestions({ items, onSelect, favorites, onToggleFav, customRecipes, onSaveCustom }) {
+function MealSuggestions({ items, onSelect, favorites, onToggleFav, customRecipes, onSaveCustom, onOpenAddCustom }) {
   const [mealTab, setMealTab]       = useState("all");
   const [search, setSearch]         = useState("");
   const [cuisine, setCuisine]       = useState("All");
   const [maxTime, setMaxTime]       = useState(30);
   const [showAll, setShowAll]       = useState(false);
-  const [showAddCustom, setShowAdd] = useState(false);
 
   const allRecipes = useMemo(() => [...(RECIPES_DATA || []), ...customRecipes], [customRecipes]);
 
@@ -793,7 +929,7 @@ function MealSuggestions({ items, onSelect, favorites, onToggleFav, customRecipe
 
       {/* Add custom button on custom tab */}
       {mealTab==="custom" && (
-        <button className="add-cat-btn" style={{marginBottom:16}} onClick={()=>setShowAdd(true)}>
+        <button className="add-cat-btn" style={{marginBottom:16}} onClick={onOpenAddCustom}>
           <Plus size={16}/> Add Custom Recipe
         </button>
       )}
@@ -835,12 +971,6 @@ function MealSuggestions({ items, onSelect, favorites, onToggleFav, customRecipe
         <button className="clear-btn" style={{marginTop:4}} onClick={()=>setShowAll(true)}>Show all {displayList.length} matches</button>
       )}
 
-      {showAddCustom && (
-        <AddCustomRecipeModal
-          onClose={()=>setShowAdd(false)}
-          onSave={r=>{onSaveCustom(r);setShowAdd(false);}}
-        />
-      )}
     </div>
   );
 }
@@ -1020,6 +1150,7 @@ export default function App() {
   const [items,setItems]           = useState(()=>loadItems());
   const [log,setLog]               = useState(()=>loadLog());
   const [showAdd,setShowAdd]       = useState(false);
+  const [showAddCustom,setShowAddCustom] = useState(false);
   const [search,setSearch]         = useState("");
   const [shopChecked,setShopChecked] = useState({});
   const [newItem,setNewItem]       = useState({name:"",category:"pantry",qty:1,unit:"count",low:1});
@@ -1251,6 +1382,7 @@ export default function App() {
                 onToggleFav={toggleFavorite}
                 customRecipes={customRecipes}
                 onSaveCustom={addCustomRecipe}
+                onOpenAddCustom={()=>setShowAddCustom(true)}
               />
             )}
 
@@ -1347,6 +1479,14 @@ export default function App() {
             </div>
           )}
 
+          {/* Add Custom Recipe Modal */}
+          {showAddCustom && (
+            <AddCustomRecipeModal
+              onClose={()=>setShowAddCustom(false)}
+              onSave={r=>{addCustomRecipe(r);setShowAddCustom(false);}}
+            />
+          )}
+
           {/* Recipe Detail Modal */}
           {selectedRecipe&&(
             <div className="modal-overlay" onClick={()=>setSelectedRecipe(null)}>
@@ -1412,6 +1552,7 @@ export default function App() {
 
         </div>{/* end main-area */}
       </div>{/* end app */}
+      <Analytics />
     </>
   );
 }
