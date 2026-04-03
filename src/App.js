@@ -401,7 +401,6 @@ const css = `
     .header { display: none; }
     .desktop-header { display: flex; align-items: center; justify-content: space-between; padding: 28px 36px 12px; flex-shrink: 0; }
     .desktop-header-title { font-family: ${FONT}; font-size: 28px; font-weight: 700; color: #3D2B1F; }
-    .bottom-nav { display: none; }
     .content { padding: 16px 36px 48px; max-width: 1200px; }
     .inv-grid { grid-template-columns: 1fr 1fr 1fr; gap: 0 16px; }
     .add-fab { right: 36px; bottom: 36px; }
@@ -666,6 +665,7 @@ const css = `
   @keyframes slideInUp    { from { opacity:0; transform:translateY(16px);  } to { opacity:1; transform:translateY(0); } }
 
   .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1.5px solid #EDE0D4; display: flex; padding: 8px 0 16px; z-index: 100; justify-content: space-around; }
+  @media (min-width: 1024px) { .bottom-nav { display: none; } }
   .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; border: none; background: none; cursor: pointer; padding: 6px 2px; transition: all 0.18s; color: #C4A98A; }
   .nav-btn.active { color: #3D2B1F; }
   .nav-btn.active svg { transform: scale(1.12); }
