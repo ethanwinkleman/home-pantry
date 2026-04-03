@@ -230,7 +230,6 @@ function parseRecipeText(text) {
 
   // ── Ingredient line detection ────────────────────────────────────
   // Starts with a fraction, number, or bullet, followed by a unit or ingredient word
-  const FRACTIONS = "½⅓⅔¼¾⅛⅜⅝⅞";
   const looksLikeIngredient = (l) => {
     const stripped = l.replace(/^[-•*]\s*/, "");
     // Starts with a number or fraction character
